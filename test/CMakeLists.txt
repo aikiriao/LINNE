@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.15)
+
+add_subdirectory(bit_stream)
+add_subdirectory(byte_array)
+add_subdirectory(command_line_parser)
+add_subdirectory(linne_internal)
+add_subdirectory(linne_coder)
+add_subdirectory(linne_encoder)
+add_subdirectory(linne_decoder)
+add_subdirectory(linne_encode_decode)
+add_subdirectory(lpc)
+add_subdirectory(wav)
