@@ -215,7 +215,7 @@ int32_t LINNEEncoder_CalculateWorkSize(const struct LINNEEncoderConfig *config)
         return -1;
     }
     work_size += tmp_work_size;
-    
+
     /* トレーナーのサイズ */
     if ((tmp_work_size = LPCNetTrainer_CalculateWorkSize(
                     config->max_num_layers, config->max_num_parameters_per_layer)) < 0) {
@@ -355,7 +355,7 @@ struct LINNEEncoder *LINNEEncoder_Create(const struct LINNEEncoderConfig *config
     work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
     encoder->buffer_double = (double *)work_ptr;
     work_ptr += config->max_num_samples_per_block * sizeof(double);
-    
+
     /* バッファオーバーランチェック */
     /* 補足）既にメモリを破壊している可能性があるので、チェックに失敗したら落とす */
     LINNE_ASSERT((work_ptr - (uint8_t *)work) <= work_size);
@@ -458,7 +458,7 @@ static LINNEBlockDataType LINNEEncoder_DecideBlockDataType(
     if (mean_length >= LINNE_ESTIMATED_CODELENGTH_THRESHOLD) {
         return LINNE_BLOCK_DATA_TYPE_RAWDATA;
     }
-    
+
     /* TODO: 無音判定 */
 
     /* それ以外は圧縮データ */
@@ -501,7 +501,7 @@ static LINNEApiResult LINNEEncoder_EncodeRawData(
                     }
                 }
                 break;
-            case 16: 
+            case 16:
                 for (smpl = 0; smpl < num_samples; smpl++) {
                     for (ch = 0; ch < header->num_channels; ch++) {
                         ByteArray_PutUint16BE(data_ptr, LINNEUTILITY_SINT32_TO_UINT32(input[ch][smpl]));
@@ -512,7 +512,7 @@ static LINNEApiResult LINNEEncoder_EncodeRawData(
             case 24:
                 for (smpl = 0; smpl < num_samples; smpl++) {
                     for (ch = 0; ch < header->num_channels; ch++) {
-                        ByteArray_PutUint24BE(data_ptr, LINNEUTILITY_SINT32_TO_UINT32(input[ch][smpl])); 
+                        ByteArray_PutUint24BE(data_ptr, LINNEUTILITY_SINT32_TO_UINT32(input[ch][smpl]));
                         LINNE_ASSERT((uint32_t)(data_ptr - data) < data_size);
                     }
                 }

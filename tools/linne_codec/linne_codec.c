@@ -120,7 +120,7 @@ static int do_encode(const char* in_filename, const char* out_filename, uint32_t
     }
 
     /* 圧縮結果サマリの表示 */
-    printf("%d -> %d (%6.2f %%) \n", 
+    printf("%d -> %d (%6.2f %%) \n",
             (uint32_t)fstat.st_size, encoded_data_size, 100.f * (double)encoded_data_size / fstat.st_size);
 
     /* リソース破棄 */

@@ -109,7 +109,7 @@ __inline uint32_t LINNEUTILITY_NLZ(uint32_t x)
 
 /* プリエンファシス/デエンファシスフィルタ */
 struct LINNEPreemphasisFilter {
-	int32_t prev;
+    int32_t prev;
     int32_t coef;
 };
 
@@ -140,15 +140,15 @@ void LINNEPreemphasisFilter_Initialize(struct LINNEPreemphasisFilter *preem);
 
 /* プリエンファシスフィルタ係数計算 */
 void LINNEPreemphasisFilter_CalculateCoefficient(
-    struct LINNEPreemphasisFilter *preem, const int32_t *buffer, uint32_t num_samples);
+        struct LINNEPreemphasisFilter *preem, const int32_t *buffer, uint32_t num_samples);
 
 /* プリエンファシス */
 void LINNEPreemphasisFilter_Preemphasis(
-    struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples);
+        struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples);
 
 /* デエンファシス */
 void LINNEPreemphasisFilter_Deemphasis(
-    struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples);
+        struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples);
 
 #ifdef __cplusplus
 }

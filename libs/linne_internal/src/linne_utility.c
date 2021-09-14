@@ -112,44 +112,44 @@ uint32_t LINNEUtility_RoundUp2PoweredSoft(uint32_t val)
 /* LR -> MS (in-place) */
 void LINNEUtility_MSConversion(int32_t **buffer, uint32_t num_samples)
 {
-	uint32_t smpl;
+    uint32_t smpl;
 
-	assert(buffer != NULL);
-	assert(buffer[0] != NULL);
-	assert(buffer[1] != NULL);
+    assert(buffer != NULL);
+    assert(buffer[0] != NULL);
+    assert(buffer[1] != NULL);
 
-	for (smpl = 0; smpl < num_samples; smpl++) {
-		buffer[1][smpl] -= buffer[0][smpl];
-		buffer[0][smpl] += (buffer[1][smpl] >> 1);
-	}
+    for (smpl = 0; smpl < num_samples; smpl++) {
+        buffer[1][smpl] -= buffer[0][smpl];
+        buffer[0][smpl] += (buffer[1][smpl] >> 1);
+    }
 }
 
 /* MS -> LR (in-place) */
 void LINNEUtility_LRConversion(int32_t **buffer, uint32_t num_samples)
 {
-	uint32_t smpl;
+    uint32_t smpl;
 
-	assert(buffer != NULL);
-	assert(buffer[0] != NULL);
-	assert(buffer[1] != NULL);
+    assert(buffer != NULL);
+    assert(buffer[0] != NULL);
+    assert(buffer[1] != NULL);
 
-	for (smpl = 0; smpl < num_samples; smpl++) {
-		buffer[0][smpl] -= (buffer[1][smpl] >> 1);
-		buffer[1][smpl] += buffer[0][smpl];
-	}
+    for (smpl = 0; smpl < num_samples; smpl++) {
+        buffer[0][smpl] -= (buffer[1][smpl] >> 1);
+        buffer[1][smpl] += buffer[0][smpl];
+    }
 }
 
 /* プリエンファシスフィルタ初期化 */
 void LINNEPreemphasisFilter_Initialize(struct LINNEPreemphasisFilter *preem)
 {
-	assert(preem != NULL);
-	preem->prev = 0;
-	preem->coef = 0;
+    assert(preem != NULL);
+    preem->prev = 0;
+    preem->coef = 0;
 }
 
 /* プリエンファシスフィルタ係数計算 */
 void LINNEPreemphasisFilter_CalculateCoefficient(
-    struct LINNEPreemphasisFilter *preem, const int32_t *buffer, uint32_t num_samples)
+        struct LINNEPreemphasisFilter *preem, const int32_t *buffer, uint32_t num_samples)
 {
     uint32_t smpl;
     int32_t coef;
@@ -187,35 +187,35 @@ void LINNEPreemphasisFilter_CalculateCoefficient(
 
 /* プリエンファシス */
 void LINNEPreemphasisFilter_Preemphasis(
-    struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples)
+        struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples)
 {
-	uint32_t smpl;
-	int32_t prev, tmp;
+    uint32_t smpl;
+    int32_t prev, tmp;
 
-	assert(buffer != NULL);
-	assert(preem != NULL);
+    assert(buffer != NULL);
+    assert(preem != NULL);
 
-	prev = preem->prev;
-	for (smpl = 0; smpl < num_samples; smpl++) {
-		tmp = buffer[smpl];
-		buffer[smpl] -= (prev * preem->coef) >> LINNE_PREEMPHASIS_COEF_SHIFT;
-		prev = tmp;
-	}
-	preem->prev = prev;
+    prev = preem->prev;
+    for (smpl = 0; smpl < num_samples; smpl++) {
+        tmp = buffer[smpl];
+        buffer[smpl] -= (prev * preem->coef) >> LINNE_PREEMPHASIS_COEF_SHIFT;
+        prev = tmp;
+    }
+    preem->prev = prev;
 }
 
 /* デエンファシス */
 void LINNEPreemphasisFilter_Deemphasis(
-    struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples)
+        struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples)
 {
-	uint32_t smpl;
+    uint32_t smpl;
 
-	assert(buffer != NULL);
-	assert(preem != NULL);
+    assert(buffer != NULL);
+    assert(preem != NULL);
 
     buffer[0] += (preem->prev * preem->coef) >> LINNE_PREEMPHASIS_COEF_SHIFT;
-	for (smpl = 1; smpl < num_samples; smpl++) {
-		buffer[smpl] += (buffer[smpl - 1] * preem->coef) >> LINNE_PREEMPHASIS_COEF_SHIFT;
-	}
+    for (smpl = 1; smpl < num_samples; smpl++) {
+        buffer[smpl] += (buffer[smpl - 1] * preem->coef) >> LINNE_PREEMPHASIS_COEF_SHIFT;
+    }
     preem->prev = buffer[num_samples - 1];
 }

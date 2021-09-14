@@ -785,7 +785,7 @@ void LPCNetTrainer_Train(struct LPCNetTrainer *trainer,
     trainer->beta1 = 0.9f;
     trainer->beta2 = 0.999f;
 #endif
-    
+
     /* 学習繰り返し */
     for (itr = 0; itr < max_num_iteration; itr++) {
         memcpy(net->data_buffer, input, sizeof(double) * num_samples);
