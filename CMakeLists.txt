@@ -23,6 +23,7 @@ add_library(${DECODER_LIB_NAME}
     $<TARGET_OBJECTS:linne_coder>
     $<TARGET_OBJECTS:linne_internal>
     $<TARGET_OBJECTS:bit_stream>
+    $<TARGET_OBJECTS:lpc>
     )
 
 # 依存するプロジェクト
