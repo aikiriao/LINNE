@@ -20,7 +20,7 @@
 #define LINNE_LPC_COEFFICIENT_BITWIDTH 8
 /* log2(ユニット数)のビット幅 */
 #define LINNE_LOG2_NUM_UNITS_BITWIDTH 3
-/* LPC係数右シフト料のビット幅 */
+/* LPC係数右シフト量のビット幅 */
 #define LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH 4
 /* 圧縮をやめて生データを出力するときの閾値（サンプルあたりビット数に占める比率） */
 #define LINNE_ESTIMATED_CODELENGTH_THRESHOLD 0.95f
