@@ -2,7 +2,6 @@
 
 #include <math.h>
 #include <stdlib.h>
-#include <assert.h>
 #include "linne_internal.h"
 
 /* CRC16(IBM:多項式0x8005を反転した0xa001によるもの) の計算用テーブル */
@@ -67,7 +66,7 @@ uint16_t LINNEUtility_CalculateCRC16(const uint8_t *data, uint64_t data_size)
     uint16_t crc16;
 
     /* 引数チェック */
-    assert(data != NULL);
+    LINNE_ASSERT(data != NULL);
 
     /* 初期値 */
     crc16 = 0x0000;
@@ -114,9 +113,9 @@ void LINNEUtility_MSConversion(int32_t **buffer, uint32_t num_samples)
 {
     uint32_t smpl;
 
-    assert(buffer != NULL);
-    assert(buffer[0] != NULL);
-    assert(buffer[1] != NULL);
+    LINNE_ASSERT(buffer != NULL);
+    LINNE_ASSERT(buffer[0] != NULL);
+    LINNE_ASSERT(buffer[1] != NULL);
 
     for (smpl = 0; smpl < num_samples; smpl++) {
         buffer[1][smpl] -= buffer[0][smpl];
@@ -129,9 +128,9 @@ void LINNEUtility_LRConversion(int32_t **buffer, uint32_t num_samples)
 {
     uint32_t smpl;
 
-    assert(buffer != NULL);
-    assert(buffer[0] != NULL);
-    assert(buffer[1] != NULL);
+    LINNE_ASSERT(buffer != NULL);
+    LINNE_ASSERT(buffer[0] != NULL);
+    LINNE_ASSERT(buffer[1] != NULL);
 
     for (smpl = 0; smpl < num_samples; smpl++) {
         buffer[0][smpl] -= (buffer[1][smpl] >> 1);
@@ -142,7 +141,7 @@ void LINNEUtility_LRConversion(int32_t **buffer, uint32_t num_samples)
 /* プリエンファシスフィルタ初期化 */
 void LINNEPreemphasisFilter_Initialize(struct LINNEPreemphasisFilter *preem)
 {
-    assert(preem != NULL);
+    LINNE_ASSERT(preem != NULL);
     preem->prev = 0;
     preem->coef = 0;
 }
@@ -156,8 +155,8 @@ void LINNEPreemphasisFilter_CalculateCoefficient(
     double corr[2] = { 0.0f, 0.0f };
     double curr;
 
-    assert(preem != NULL);
-    assert(buffer != NULL);
+    LINNE_ASSERT(preem != NULL);
+    LINNE_ASSERT(buffer != NULL);
 
     /* 相関の計算 */
     curr = buffer[0] * pow(2.0f, -15);
@@ -192,8 +191,8 @@ void LINNEPreemphasisFilter_Preemphasis(
     uint32_t smpl;
     int32_t prev, tmp;
 
-    assert(buffer != NULL);
-    assert(preem != NULL);
+    LINNE_ASSERT(buffer != NULL);
+    LINNE_ASSERT(preem != NULL);
 
     prev = preem->prev;
     for (smpl = 0; smpl < num_samples; smpl++) {
@@ -210,8 +209,8 @@ void LINNEPreemphasisFilter_Deemphasis(
 {
     uint32_t smpl;
 
-    assert(buffer != NULL);
-    assert(preem != NULL);
+    LINNE_ASSERT(buffer != NULL);
+    LINNE_ASSERT(preem != NULL);
 
     buffer[0] += (preem->prev * preem->coef) >> LINNE_PREEMPHASIS_COEF_SHIFT;
     for (smpl = 1; smpl < num_samples; smpl++) {
