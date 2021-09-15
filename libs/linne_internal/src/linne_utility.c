@@ -43,14 +43,14 @@ static const uint16_t st_crc16_ibm_byte_table[0x100] = {
 /* NLZ計算のためのテーブル */
 #define UNUSED 99
 static const uint32_t st_nlz10_table[64] = {
-    32,     20,     19, UNUSED, UNUSED,     18, UNUSED,      7,
-    10,     17, UNUSED, UNUSED,     14, UNUSED,      6, UNUSED,
+        32,     20,     19, UNUSED, UNUSED,     18, UNUSED,      7,
+        10,     17, UNUSED, UNUSED,     14, UNUSED,      6, UNUSED,
     UNUSED,      9, UNUSED,     16, UNUSED, UNUSED,      1,     26,
     UNUSED,     13, UNUSED, UNUSED,     24,      5, UNUSED, UNUSED,
     UNUSED,     21, UNUSED,      8,     11, UNUSED,     15, UNUSED,
     UNUSED, UNUSED, UNUSED,      2,     27,      0,     25, UNUSED,
-    22, UNUSED,     12, UNUSED, UNUSED,      3,     28, UNUSED,
-    23, UNUSED,      4,     29, UNUSED, UNUSED,     30,     31
+        22, UNUSED,     12, UNUSED, UNUSED,      3,     28, UNUSED,
+        23, UNUSED,      4,     29, UNUSED, UNUSED,     30,     31
 };
 #undef UNUSED
 
