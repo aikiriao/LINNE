@@ -17,6 +17,7 @@
 typedef enum LPCErrorTag {
     LPC_ERROR_OK,
     LPC_ERROR_NG,
+    LPC_ERROR_SINGULAR_MATRIX,
     LPC_ERROR_INVALID_ARGUMENT
 } LPCError;
 
@@ -29,6 +30,7 @@ struct LPCCalculator {
     double *e_vec; /* 計算用ベクトル2 */
     double *u_vec; /* 計算用ベクトル3 */
     double *v_vec; /* 計算用ベクトル4 */
+    double **r_mat; /* 補助関数法で使用する行列(max_order x max_order) */
     double *auto_corr; /* 標本自己相関 */
     double *lpc_coef; /* LPC係数ベクトル */
     double *parcor_coef; /* PARCOR係数ベクトル */
@@ -64,6 +66,9 @@ int32_t LPCCalculator_CalculateWorkSize(uint32_t max_order)
     work_size += (int32_t)(sizeof(double) * (max_order + 2) * 4); /* a, e, u, v ベクトル分の領域 */
     work_size += (int32_t)(sizeof(double) * (max_order + 1)); /* 標本自己相関の領域 */
     work_size += (int32_t)(sizeof(double) * (max_order + 1) * 2); /* 係数ベクトルの領域 */
+    /* 補助関数法で使用する行列領域 */
+    work_size += (int32_t)(sizeof(double*) * (max_order));
+    work_size += (int32_t)(sizeof(double) * (max_order * max_order));
 
     return work_size;
 }
@@ -125,6 +130,17 @@ struct LPCCalculator *LPCCalculator_Create(uint32_t max_order, void *work, int32
     work_ptr += sizeof(double) * (max_order + 1);
     lpcc->parcor_coef = (double *)work_ptr;
     work_ptr += sizeof(double) * (max_order + 1);
+
+    /* 補助関数法で使用する行列領域 */
+    {
+        uint32_t ord;
+        lpcc->r_mat = (double **)work_ptr;
+        work_ptr += sizeof(double*) * max_order;
+        for (ord = 0; ord < max_order; ord++) {
+            lpcc->r_mat[ord] = (double *)work_ptr;
+            work_ptr += sizeof(double) * max_order;
+        }
+    }
 
     return lpcc;
 }
@@ -328,6 +344,176 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficients(
     memmove(coef, &lpcc->lpc_coef[1], sizeof(double) * coef_order);
 
     return LPC_APIRESULT_OK;
+}
+
+/* コレスキー分解により Amat * xvec = bvec を解く */
+static LPCError LPC_CholeskyDecomposition(
+        double **Amat, int32_t dim, double *xvec, double *bvec, double *diag)
+{
+    int32_t i, j, k;
+    double sum;
+
+    /* 引数チェック */
+    assert((Amat != NULL) && (diag != NULL) && (bvec != NULL) && (xvec != NULL));
+
+    /* コレスキー分解 */
+    for (i = 0; i < dim; i++) {
+        for (j = i; j < dim; j++) {
+            sum = Amat[i][j];
+            for (k = i - 1; k >= 0; k--) {
+                sum -= Amat[i][k] * Amat[j][k];
+            }
+            if (i == j) {
+                if (sum <= 0.0f) {
+                    return LPC_ERROR_SINGULAR_MATRIX;
+                }
+                diag[i] = sqrt(sum);
+            } else {
+                Amat[j][i] = sum / diag[i];
+            }
+        }
+    }
+
+    /* 分解を用いて線形一次方程式を解く */
+    for (i = 0; i < dim; i++) {
+        sum = bvec[i];
+        for (j = i - 1; j >= 0; j--) {
+            sum -= Amat[i][j] * xvec[j];
+        }
+        xvec[i] = sum / diag[i];
+    }
+    for (i = dim - 1; i >= 0; i--) {
+        sum = xvec[i];
+        for (j = i + 1; j < dim; j++) {
+            sum -= Amat[j][i] * xvec[j];
+        }
+        xvec[i] = sum / diag[i];
+    }
+
+    return LPC_ERROR_OK;
+}
+
+/* 補助関数法による係数計算 */
+static LPCError LPC_CalculateCoefAF(
+        struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order,
+        const uint32_t max_num_iteration, const double obj_epsilon)
+{
+#define RESIDUAL_EPSILON 1e-8
+    uint32_t smpl, itr, i, j;
+    const double inv_num_samples = 1.0f / (num_samples - coef_order);
+    double *a_vec = lpcc->a_vec;
+    double *r_vec = lpcc->e_vec;
+    double **r_mat = lpcc->r_mat;
+    double obj_value, prev_obj_value;
+
+    /* 引数チェック */
+    if (lpcc == NULL) {
+        return LPC_ERROR_INVALID_ARGUMENT;
+    }
+
+    assert(num_samples > coef_order);
+
+    /* 係数を0初期化 */
+    for (i = 0; i < coef_order; i++) {
+        a_vec[i] = 0.0f;
+    }
+
+    prev_obj_value = FLT_MAX;
+    for (itr = 0; itr < max_num_iteration; itr++) {
+        /* 行列を0初期化 */
+        for (i = 0; i < coef_order; i++) {
+            r_vec[i] = 0.0f;
+            for (j = 0; j < coef_order; j++) {
+                r_mat[i][j] = 0.0f;
+            }
+        }
+        /* 係数行列要素の計算 */
+        obj_value = 0.0f;
+        for (smpl = coef_order; smpl < num_samples; smpl++) {
+            /* 残差計算 */
+            double residual = data[smpl];
+            double inv_residual;
+            for (i = 0; i < coef_order; i++) {
+                residual -= a_vec[i] * data[smpl - i - 1];
+            }
+            residual = fabs(residual);
+            obj_value += residual;
+            /* 小さすぎる残差はepsilonに丸め込む（ゼロ割回避） */
+            residual = (residual < RESIDUAL_EPSILON) ? RESIDUAL_EPSILON : residual;
+            inv_residual = 1.0f / residual;
+            /* 係数行列に足し込み */
+            for (i = 0; i < coef_order; i++) {
+                r_vec[i] += data[smpl] * data[smpl - i - 1] * inv_residual;
+                for (j = i; j < coef_order; j++) {
+                    r_mat[i][j] += data[smpl - i - 1] * data[smpl - j - 1] * inv_residual;
+                }
+            }
+        }
+        obj_value *= inv_num_samples;
+        /* 平均をとる / 対称要素に拡張 */
+        for (i = 0; i < coef_order; i++) {
+            r_vec[i] *= inv_num_samples;
+            for (j = i; j < coef_order; j++) {
+                r_mat[i][j] *= inv_num_samples;
+                r_mat[j][i] = r_mat[i][j];
+            }
+        }
+        /* コレスキー分解で r_mat @ avec = r_vec を解く */
+        if (LPC_CholeskyDecomposition(
+                    r_mat, (int32_t)coef_order, 
+                    a_vec, r_vec, lpcc->u_vec) == LPC_ERROR_SINGULAR_MATRIX) {
+            /* 特異行列になるのは理論上入力が全部0のとき。係数を0クリアして終わる */
+            for (i = 0; i < coef_order; i++) {
+                lpcc->lpc_coef[i] = 0.0f;
+            }
+            return LPC_ERROR_OK;
+        }
+#if 0
+        printf("%2d %e, ", itr, obj_value);
+        for (i = 0; i < coef_order; i++) {
+            printf("%f, ", a_vec[i]);
+        }
+        printf("\n");
+#endif
+        /* 収束判定 */
+        if (fabs(prev_obj_value - obj_value) < obj_epsilon) {
+            break;
+        }
+        prev_obj_value = obj_value;
+    }
+
+    /* 解を設定 */
+    for (i = 0; i < coef_order; i++) {
+        lpcc->lpc_coef[i] = -a_vec[i];
+    }
+
+    return LPC_ERROR_OK;
+}
+
+/* 補助関数法よりLPC係数を求める（倍精度） */
+LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
+    struct LPCCalculator *lpcc,
+    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order)
+{
+    /* 引数チェック */
+    if ((data == NULL) || (coef == NULL)) {
+        return LPC_APIRESULT_INVALID_ARGUMENT;
+    }
+
+    /* 次数チェック */
+    if (coef_order > lpcc->max_order) {
+        return LPC_APIRESULT_EXCEED_MAX_ORDER;
+    }
+
+    /* 係数計算 */
+    if (LPC_CalculateCoefAF(lpcc, data, num_samples, coef_order, 10, 1e-8) != LPC_ERROR_OK) {
+        return LPC_APIRESULT_FAILED_TO_CALCULATION;
+    }
+
+    /* 計算成功時は結果をコピー */
+    memmove(coef, lpcc->lpc_coef, sizeof(double) * coef_order);
+
+    return LPC_APIRESULT_NG;
 }
 
 /* 入力データからサンプルあたりの推定符号長を求める */
