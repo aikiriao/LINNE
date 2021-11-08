@@ -405,6 +405,7 @@ static LPCError LPC_CalculateCoefAF(
     double *r_vec = lpcc->e_vec;
     double **r_mat = lpcc->r_mat;
     double obj_value, prev_obj_value;
+    LPCError err;
 
     /* 引数チェック */
     if (lpcc == NULL) {
@@ -438,7 +439,7 @@ static LPCError LPC_CalculateCoefAF(
             }
             residual = fabs(residual);
             obj_value += residual;
-            /* 小さすぎる残差はepsilonに丸め込む（ゼロ割回避） */
+            /* 小さすぎる残差は丸め込む（ゼロ割回避、正則化） */
             residual = (residual < RESIDUAL_EPSILON) ? RESIDUAL_EPSILON : residual;
             inv_residual = 1.0f / residual;
             /* 係数行列に足し込み */
@@ -459,15 +460,16 @@ static LPCError LPC_CalculateCoefAF(
             }
         }
         /* コレスキー分解で r_mat @ avec = r_vec を解く */
-        if (LPC_CholeskyDecomposition(
-                    r_mat, (int32_t)coef_order, 
-                    a_vec, r_vec, lpcc->u_vec) == LPC_ERROR_SINGULAR_MATRIX) {
+        if ((err = LPC_CholeskyDecomposition(
+                        r_mat, (int32_t)coef_order, 
+                        a_vec, r_vec, lpcc->u_vec)) == LPC_ERROR_SINGULAR_MATRIX) {
             /* 特異行列になるのは理論上入力が全部0のとき。係数を0クリアして終わる */
             for (i = 0; i < coef_order; i++) {
                 lpcc->lpc_coef[i] = 0.0f;
             }
             return LPC_ERROR_OK;
         }
+        assert(err == LPC_ERROR_OK);
 #if 0
         printf("%2d %e, ", itr, obj_value);
         for (i = 0; i < coef_order; i++) {
