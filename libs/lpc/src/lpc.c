@@ -648,7 +648,13 @@ LPCApiResult LPC_Predict(
     memcpy(residual, data, sizeof(int32_t) * num_samples);
 
     /* LPC係数による予測 */
-    /* 仮: 先頭orderサンプルは予測しない */
+    for (smpl = 1; smpl < coef_order; smpl++) {
+        int32_t predict = (1 << (coef_rshift - 1));
+        for (ord = 0; ord < smpl; ord++) {
+            predict += (coef[ord] * data[smpl - ord - 1]);
+        }
+        residual[smpl] += (predict >> coef_rshift);
+    }
     for (smpl = coef_order; smpl < num_samples; smpl++) {
         int32_t predict = (1 << (coef_rshift - 1));
         for (ord = 0; ord < coef_order; ord++) {
@@ -673,7 +679,13 @@ LPCApiResult LPC_Synthesize(
     }
 
     /* LPC係数による予測 */
-    /* 仮: 先頭orderサンプルは予測しない */
+    for (smpl = 1; smpl < coef_order; smpl++) {
+        int32_t predict = (1 << (coef_rshift - 1));
+        for (ord = 0; ord < smpl; ord++) {
+            predict += (coef[ord] * data[smpl - ord - 1]);
+        }
+        data[smpl] -= (predict >> coef_rshift);
+    }
     for (smpl = coef_order; smpl < num_samples; smpl++) {
         int32_t predict = (1 << (coef_rshift - 1));
         for (ord = 0; ord < coef_order; ord++) {
