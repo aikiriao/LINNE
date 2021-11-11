@@ -75,7 +75,7 @@ static int do_encode(const char* in_filename, const char* out_filename, uint32_t
     parameter.bits_per_sample = (uint16_t)in_wav->format.bits_per_sample;
     parameter.sampling_rate = in_wav->format.sampling_rate;
     /* プリセットの反映 */
-    parameter.num_samples_per_block = 4096;
+    parameter.num_samples_per_block = 2 * 4096;
     parameter.ch_process_method = LINNE_CH_PROCESS_METHOD_MS;
     parameter.preset = (uint8_t)encode_preset_no;
     /* 2ch未満の信号にはMS処理できないので無効に */
