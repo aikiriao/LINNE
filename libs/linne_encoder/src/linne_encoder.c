@@ -579,9 +579,10 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
     /* チャンネル毎にLPCNetのパラメータ計算 */
     for (ch = 0; ch < header->num_channels; ch++) {
         uint32_t smpl;
-        /* ユニット数で割り切れるように、分析サンプル数は2の冪数に切り上げる */
+        /* ユニット数で割り切れるように、分析サンプル数はユニット分割数の倍数に切り上げ */
         const uint32_t num_analyze_samples
-            = LINNEUTILITY_MIN(encoder->max_num_samples_per_block, LINNEUTILITY_ROUNDUP2POWERED(num_samples));
+            = LINNEUTILITY_MIN(encoder->max_num_samples_per_block,
+                    LINNEUTILITY_ROUNDUP(num_samples, (1 << LINNE_LOG2_NUM_UNITS_BITWIDTH)));
         /* double精度の信号に変換（[-1,1]の範囲に正規化） */
         for (smpl = 0; smpl < num_analyze_samples; smpl++) {
             encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0f, -(int32_t)(header->bits_per_sample - 1));

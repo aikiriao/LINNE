@@ -296,8 +296,13 @@ static void LPCNetLayer_SearchOptimalNumUnits(
         const uint32_t nsmpls_per_unit = num_samples / nunits;
         double mean_loss = 0.0f;
         LPCNET_ASSERT(LPCNET_MAX_PARAMS_PER_LAYER > nparams_per_unit);
-        LPCNET_ASSERT(layer->num_params % nunits == 0);
-        LPCNET_ASSERT(num_samples % nunits == 0);
+
+        /* ユニット数で分割できなくなったら探索を打ち切る */
+        if (((layer->num_params % nunits) != 0)
+                || ((num_samples % nunits) != 0)) {
+            break;
+        }
+
         /* 各ユニット数における誤差を計算し、ベストなユニット数を探る */
         for (unit = 0; unit < nunits; unit++) {
             uint32_t smpl, k;
