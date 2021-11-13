@@ -440,7 +440,7 @@ static LPCError LPC_CalculateCoefAF(
             }
             residual = fabs(residual);
             obj_value += residual;
-            /* 小さすぎる残差は丸め込む（ゼロ割回避、正則化） */
+            /* 小さすぎる残差は丸め込む（ゼERO割回避、正則化） */
             residual = (residual < RESIDUAL_EPSILON) ? RESIDUAL_EPSILON : residual;
             inv_residual = 1.0f / residual;
             /* 係数行列に足し込み */
@@ -452,11 +452,9 @@ static LPCError LPC_CalculateCoefAF(
             }
         }
         obj_value *= inv_num_samples;
-        /* 平均をとる / 対称要素に拡張 */
+        /* 対称要素に拡張 */
         for (i = 0; i < coef_order; i++) {
-            r_vec[i] *= inv_num_samples;
-            for (j = i; j < coef_order; j++) {
-                r_mat[i][j] *= inv_num_samples;
+            for (j = i + 1; j < coef_order; j++) {
                 r_mat[j][i] = r_mat[i][j];
             }
         }
