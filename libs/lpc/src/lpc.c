@@ -358,19 +358,20 @@ static LPCError LPC_CholeskyDecomposition(
 
     /* コレスキー分解 */
     for (i = 0; i < dim; i++) {
-        for (j = i; j < dim; j++) {
+        sum = Amat[i][i];
+        for (k = i - 1; k >= 0; k--) {
+            sum -= Amat[i][k] * Amat[i][k];
+        }
+        if (sum <= 0.0f) {
+            return LPC_ERROR_SINGULAR_MATRIX;
+        }
+        diag[i] = sqrt(sum);
+        for (j = i + 1; j < dim; j++) {
             sum = Amat[i][j];
             for (k = i - 1; k >= 0; k--) {
                 sum -= Amat[i][k] * Amat[j][k];
             }
-            if (i == j) {
-                if (sum <= 0.0f) {
-                    return LPC_ERROR_SINGULAR_MATRIX;
-                }
-                diag[i] = sqrt(sum);
-            } else {
-                Amat[j][i] = sum / diag[i];
-            }
+            Amat[j][i] = sum / diag[i];
         }
     }
 
