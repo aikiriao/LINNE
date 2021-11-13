@@ -494,7 +494,8 @@ static LPCError LPC_CalculateCoefAF(
 /* 補助関数法よりLPC係数を求める（倍精度） */
 LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     struct LPCCalculator *lpcc,
-    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order)
+    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
+    uint32_t max_num_iteration)
 {
     /* 引数チェック */
     if ((data == NULL) || (coef == NULL)) {
@@ -507,7 +508,7 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoefAF(lpcc, data, num_samples, coef_order, 10, 1e-8) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoefAF(lpcc, data, num_samples, coef_order, max_num_iteration, 1e-8) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 

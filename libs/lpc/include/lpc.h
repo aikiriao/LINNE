@@ -36,7 +36,8 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficients(
 /* 補助関数法よりLPC係数を求める（倍精度） */
 LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     struct LPCCalculator *lpcc,
-    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order);
+    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
+    uint32_t max_num_iteration);
 
 /* 入力データからサンプルあたりの推定符号長を求める */
 LPCApiResult LPCCalculator_EstimateCodeLength(
