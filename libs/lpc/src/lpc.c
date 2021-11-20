@@ -348,13 +348,13 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficients(
 
 /* コレスキー分解により Amat * xvec = bvec を解く */
 static LPCError LPC_CholeskyDecomposition(
-        double **Amat, int32_t dim, double *xvec, double *bvec, double *diag)
+        double **Amat, int32_t dim, double *xvec, double *bvec, double *inv_diag)
 {
     int32_t i, j, k;
     double sum;
 
     /* 引数チェック */
-    assert((Amat != NULL) && (diag != NULL) && (bvec != NULL) && (xvec != NULL));
+    assert((Amat != NULL) && (inv_diag != NULL) && (bvec != NULL) && (xvec != NULL));
 
     /* コレスキー分解 */
     for (i = 0; i < dim; i++) {
@@ -365,13 +365,14 @@ static LPCError LPC_CholeskyDecomposition(
         if (sum <= 0.0f) {
             return LPC_ERROR_SINGULAR_MATRIX;
         }
-        diag[i] = sqrt(sum);
+        /* 1.0 / sqrt(sum) は除算により桁落ちするためpowを使用 */
+        inv_diag[i] = pow(sum, -0.5f);
         for (j = i + 1; j < dim; j++) {
             sum = Amat[i][j];
             for (k = i - 1; k >= 0; k--) {
                 sum -= Amat[i][k] * Amat[j][k];
             }
-            Amat[j][i] = sum / diag[i];
+            Amat[j][i] = sum * inv_diag[i];
         }
     }
 
@@ -381,14 +382,14 @@ static LPCError LPC_CholeskyDecomposition(
         for (j = i - 1; j >= 0; j--) {
             sum -= Amat[i][j] * xvec[j];
         }
-        xvec[i] = sum / diag[i];
+        xvec[i] = sum * inv_diag[i];
     }
     for (i = dim - 1; i >= 0; i--) {
         sum = xvec[i];
         for (j = i + 1; j < dim; j++) {
             sum -= Amat[j][i] * xvec[j];
         }
-        xvec[i] = sum / diag[i];
+        xvec[i] = sum * inv_diag[i];
     }
 
     return LPC_ERROR_OK;
