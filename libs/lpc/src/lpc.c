@@ -400,7 +400,7 @@ static LPCError LPC_CalculateCoefAF(
         struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order,
         const uint32_t max_num_iteration, const double obj_epsilon)
 {
-#define RESIDUAL_EPSILON 1e-8
+#define RESIDUAL_EPSILON 1e-6
     uint32_t smpl, itr, i, j;
     const double inv_num_samples = 1.0f / (num_samples - coef_order);
     double *a_vec = lpcc->a_vec;
