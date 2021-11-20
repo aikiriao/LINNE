@@ -515,7 +515,7 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     /* 計算成功時は結果をコピー */
     memmove(coef, lpcc->lpc_coef, sizeof(double) * coef_order);
 
-    return LPC_APIRESULT_NG;
+    return LPC_APIRESULT_OK;
 }
 
 /* 入力データからサンプルあたりの推定符号長を求める */
