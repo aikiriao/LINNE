@@ -400,10 +400,10 @@ static LPCError LPC_CholeskyDecomposition(
 
 #if 1
 /* 補助関数法（前向き残差）による係数行列計算 */
-static double LPCAF_CalculateCoefMatrixAndVector(
+static LPCError LPCAF_CalculateCoefMatrixAndVector(
         const double *data, uint32_t num_samples,
         const double *a_vec, double **r_mat, double *r_vec,
-        uint32_t coef_order)
+        uint32_t coef_order, double *pobj_value)
 {
     double obj_value;
     uint32_t smpl, i, j;
@@ -412,6 +412,7 @@ static double LPCAF_CalculateCoefMatrixAndVector(
     assert(a_vec != NULL);
     assert(r_mat != NULL);
     assert(r_vec != NULL);
+    assert(pobj_value != NULL);
     assert(num_samples > coef_order);
 
     /* 行列を0初期化 */
@@ -452,14 +453,17 @@ static double LPCAF_CalculateCoefMatrixAndVector(
         }
     }
 
-    return obj_value / (num_samples - coef_order);
+    /* 目的関数値のセット */
+    (*pobj_value) = obj_value / (num_samples - coef_order);
+
+    return LPC_ERROR_OK;
 }
 #else
 /* 補助関数法（前向き後ろ向き残差）による係数行列計算 */
-static double LPCAF_CalculateCoefMatrixAndVector(
+static LPCError LPCAF_CalculateCoefMatrixAndVector(
         const double *data, uint32_t num_samples, 
         const double *a_vec, double **r_mat, double *r_vec,
-        uint32_t coef_order)
+        uint32_t coef_order, double *pobj_value)
 {
     double obj_value;
     uint32_t smpl, i, j;
@@ -468,6 +472,7 @@ static double LPCAF_CalculateCoefMatrixAndVector(
     assert(a_vec != NULL);
     assert(r_mat != NULL);
     assert(r_vec != NULL);
+    assert(pobj_value != NULL);
     assert(num_samples > coef_order);
 
     /* 行列を0初期化 */
@@ -514,7 +519,9 @@ static double LPCAF_CalculateCoefMatrixAndVector(
         }
     }
 
-    return obj_value / (2 * (num_samples - (2 * coef_order)));
+    (*pobj_value) = obj_value / (2 * (num_samples - (2 * coef_order)));
+
+    return LPC_ERROR_OK;
 }
 #endif
 
@@ -543,9 +550,10 @@ static LPCError LPC_CalculateCoefAF(
     prev_obj_value = FLT_MAX;
     for (itr = 0; itr < max_num_iteration; itr++) {
         /* 係数行列要素の計算 */
-        obj_value
-            = LPCAF_CalculateCoefMatrixAndVector(
-                    data, num_samples, a_vec, r_mat, r_vec, coef_order);
+        if ((err = LPCAF_CalculateCoefMatrixAndVector(
+                data, num_samples, a_vec, r_mat, r_vec, coef_order, &obj_value)) != LPC_ERROR_OK) {
+            return err;
+        }
         /* コレスキー分解で r_mat @ avec = r_vec を解く */
         if ((err = LPC_CholeskyDecomposition(
                         r_mat, (int32_t)coef_order, 
