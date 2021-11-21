@@ -58,10 +58,10 @@ struct LPCNet {
 struct LPCNetTrainer {
     uint32_t max_num_layers; /* 最大層数 */
     uint32_t max_num_params_per_layer; /* レイヤーあたりパラメータ数 */
-    double **grad_rs; /* 勾配の各要素の2乗和 */
-#if 0
     double **momentum; /* モーメンタム */
     double momentum_alpha; /* モーメンタムのハイパラ */
+#if 0
+    double **grad_rs; /* 勾配の各要素の2乗和 */
     double **m; /* Adamの速度項 */
     double **v; /* Adamの勾配の2乗和項 */
     double beta1, beta2; /* Adamのハイパラ */
@@ -650,12 +650,12 @@ int32_t LPCNetTrainer_CalculateWorkSize(uint32_t max_num_layers, uint32_t max_nu
 
     work_size = sizeof(struct LPCNetTrainer) + LPCNET_MEMORY_ALIGNMENT;
 
-    /* For AdaGrad */
+    /* For momentum */
     work_size += sizeof(double *) * max_num_layers + LPCNET_MEMORY_ALIGNMENT;
     work_size += max_num_layers * max_num_params_per_layer * sizeof(double) + LPCNET_MEMORY_ALIGNMENT;
 
 #if 0
-    /* For momentum */
+    /* For AdaGrad */
     work_size += sizeof(double *) * max_num_layers + LPCNET_MEMORY_ALIGNMENT;
     work_size += max_num_layers * max_num_params_per_layer * sizeof(double) + LPCNET_MEMORY_ALIGNMENT;
 
@@ -691,17 +691,6 @@ struct LPCNetTrainer *LPCNetTrainer_Create(
     trainer->max_num_layers = max_num_layers;
     trainer->max_num_params_per_layer = max_num_params_per_layer;
 
-    /* For AdaGrad */
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
-    trainer->grad_rs = (double **)work_ptr;
-    work_ptr += sizeof(double *) * max_num_layers;
-    for (l = 0; l < max_num_layers; l++) {
-        work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
-        trainer->grad_rs[l] = (double *)work_ptr;
-        work_ptr += sizeof(double) * max_num_params_per_layer;
-    }
-
-#if 0
     /* For momentum */
     work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
     trainer->momentum = (double **)work_ptr;
@@ -709,6 +698,17 @@ struct LPCNetTrainer *LPCNetTrainer_Create(
     for (l = 0; l < max_num_layers; l++) {
         work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
         trainer->momentum[l] = (double *)work_ptr;
+        work_ptr += sizeof(double) * max_num_params_per_layer;
+    }
+
+#if 0
+    /* For AdaGrad */
+    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+    trainer->grad_rs = (double **)work_ptr;
+    work_ptr += sizeof(double *) * max_num_layers;
+    for (l = 0; l < max_num_layers; l++) {
+        work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+        trainer->grad_rs[l] = (double *)work_ptr;
         work_ptr += sizeof(double) * max_num_params_per_layer;
     }
 
@@ -762,18 +762,18 @@ void LPCNetTrainer_Train(struct LPCNetTrainer *trainer,
     /* モーメンタムを初期化 */
     for (l = 0; l < net->num_layers; l++) {
         for (i = 0; i < net->layers[l]->num_params; i++) {
-            trainer->grad_rs[l][i] = 0.0f;
-#if 0
             trainer->momentum[l][i] = 0.0f;
+#if 0
+            trainer->grad_rs[l][i] = 0.0f;
             trainer->m[l][i] = 0.0f;
             trainer->v[l][i] = 0.0f;
 #endif
         }
     }
 
-#if 0
     /* モーメンタムのハイパラ設定 */
     trainer->momentum_alpha = 0.8f;
+#if 0
     /* Adamのハイパラ設定 */
     trainer->beta1 = 0.9f;
     trainer->beta2 = 0.999f;
@@ -786,13 +786,17 @@ void LPCNetTrainer_Train(struct LPCNetTrainer *trainer,
         for (l = 0; l < net->num_layers; l++) {
             struct LPCNetLayer *layer = net->layers[l];
             for (i = 0; i < layer->num_params; i++) {
-                /* AdaGrad */
-                trainer->grad_rs[l][i] += pow(layer->dparams[i], 2.0f);
-                layer->params[i] -= learning_rate * layer->dparams[i] / (sqrt(trainer->grad_rs[l][i]) + 1e-8);
-#if 0
+#if 1
                 /* Momentum */
                 trainer->momentum[l][i] = trainer->momentum_alpha * trainer->momentum[l][i] + learning_rate * layer->dparams[i];
                 layer->params[i] -= trainer->momentum[l][i];
+#endif
+#if 0
+                /* AdaGrad */
+                trainer->grad_rs[l][i] += pow(layer->dparams[i], 2.0f);
+                layer->params[i] -= learning_rate * layer->dparams[i] / (sqrt(trainer->grad_rs[l][i]) + 1e-8);
+#endif
+#if 0
                 /* Adam */
                 {
                     const double lr = learning_rate * sqrt(1.0f - pow(trainer->beta2, (itr + 1))) / (1.0f - pow(trainer->beta1, (itr + 1)));
