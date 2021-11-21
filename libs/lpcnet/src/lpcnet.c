@@ -275,8 +275,8 @@ static void LPCNetLayer_Backward(
     }
 }
 
-/* 最適なユニット数の探索・設定 */
-static void LPCNetLayer_SearchOptimalNumUnits(
+/* 最適なユニット数とパラメータの探索・設定 */
+static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
         struct LPCNetLayer *layer, struct LPCCalculator *lpcc,
         const double *input, uint32_t num_samples, const uint32_t max_num_units)
 {
@@ -284,6 +284,7 @@ static void LPCNetLayer_SearchOptimalNumUnits(
     double min_loss = FLT_MAX;
     uint32_t tmp_best_nunits = 0;
     double params_buffer[LPCNET_MAX_PARAMS_PER_LAYER];
+    double best_params[LPCNET_MAX_PARAMS_PER_LAYER];
 
     LPCNET_ASSERT(layer != NULL);
     LPCNET_ASSERT(lpcc != NULL);
@@ -307,16 +308,17 @@ static void LPCNetLayer_SearchOptimalNumUnits(
         for (unit = 0; unit < nunits; unit++) {
             uint32_t smpl, k;
             const double *pinput = &input[unit * nsmpls_per_unit];
+            double *pparams = &params_buffer[unit * nparams_per_unit];
             LPCApiResult ret;
-            ret = LPCCalculator_CalculateLPCCoefficients(lpcc,
-                    pinput, nsmpls_per_unit, params_buffer, nparams_per_unit);
+            ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
+                    pinput, nsmpls_per_unit, pparams, nparams_per_unit, 10);
             LPCNET_ASSERT(ret == LPC_APIRESULT_OK);
             /* その場で予測, 平均絶対値誤差を計算 */
             for (smpl = 0; smpl < nparams_per_unit; smpl++) {
                 double predict = 0.0f;
                 for (k = 0; k < nparams_per_unit; k++) {
                     if (smpl >= (k + 1)) {
-                        predict += params_buffer[k] * pinput[smpl - k - 1];
+                        predict += pparams[k] * pinput[smpl - k - 1];
                     }
                 }
                 mean_loss += fabs(pinput[smpl] + predict);
@@ -324,7 +326,7 @@ static void LPCNetLayer_SearchOptimalNumUnits(
             for (; smpl < nsmpls_per_unit; smpl++) {
                 double predict = 0.0f;
                 for (k = 0; k < nparams_per_unit; k++) {
-                    predict += params_buffer[k] * pinput[smpl - k - 1];
+                    predict += pparams[k] * pinput[smpl - k - 1];
                 }
                 mean_loss += fabs(pinput[smpl] + predict);
             }
@@ -333,38 +335,26 @@ static void LPCNetLayer_SearchOptimalNumUnits(
         if (mean_loss < min_loss) {
             min_loss = mean_loss;
             tmp_best_nunits = nunits;
+            memcpy(best_params, params_buffer, sizeof(double) * layer->num_params);
         }
     }
 
-    /* 最適なユニット数の設定 */
+    /* 最適なユニット数とパラメータの設定 */
     LPCNET_ASSERT(tmp_best_nunits != 0);
     layer->num_units = tmp_best_nunits;
-}
 
-/* Levinson-Durbin法でパラメータ設定 */
-static void LPCNetLayer_SetParametersByLevinsonDurbin(
-        struct LPCNetLayer *layer, struct LPCCalculator *lpcc,
-        const double *input, uint32_t num_samples)
-{
-    uint32_t i, unit;
-    const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
-    const uint32_t nsmpls_per_unit = num_samples / layer->num_units;
-
-    LPCNET_ASSERT(layer->num_units > 0);
-    LPCNET_ASSERT(layer->num_params % layer->num_units == 0);
-    LPCNET_ASSERT(num_samples % layer->num_units == 0);
-
-    for (unit = 0; unit < layer->num_units; unit++) {
-        LPCApiResult ret;
-        double *pparams = &layer->params[unit * nparams_per_unit];
-        ret = LPCCalculator_CalculateLPCCoefficients(lpcc,
-                &input[unit * nsmpls_per_unit], nsmpls_per_unit, pparams, nparams_per_unit);
-        LPCNET_ASSERT(ret == LPC_APIRESULT_OK);
-        /* 順行伝播を行列演算で扱う都合上、パラメータ順序をリバース */
-        for (i = 0; i < nparams_per_unit / 2; i++) {
-            double tmp = pparams[i];
-            pparams[i] = pparams[nparams_per_unit - i - 1];
-            pparams[nparams_per_unit - i - 1] = tmp;
+    {
+        uint32_t i;
+        const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
+        memcpy(layer->params, best_params, sizeof(double) * layer->num_params);
+        for (unit = 0; unit < layer->num_units; unit++) {
+            double *pparams = &layer->params[unit * nparams_per_unit];
+            /* 順行伝播を行列演算で扱う都合上、パラメータ順序をリバース */
+            for (i = 0; i < nparams_per_unit / 2; i++) {
+                double tmp = pparams[i];
+                pparams[i] = pparams[nparams_per_unit - i - 1];
+                pparams[nparams_per_unit - i - 1] = tmp;
+            }
         }
     }
 }
@@ -565,10 +555,8 @@ void LPCNet_SetUnitsAndParametersByLevinsonDurbin(
 
     memcpy(net->data_buffer, input, sizeof(double) * num_samples);
     for (l = 0; l < net->num_layers; l++) {
-        LPCNetLayer_SearchOptimalNumUnits(
+        LPCNetLayer_SetOptimalNumUnitsAndParameter(
                 net->layers[l], net->lpcc, net->data_buffer, num_samples, net->layers[l]->num_params);
-        LPCNetLayer_SetParametersByLevinsonDurbin(
-                net->layers[l], net->lpcc, net->data_buffer, num_samples);
         LPCNetLayer_Forward(net->layers[l], net->data_buffer, num_samples);
     }
 }
