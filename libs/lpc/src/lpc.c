@@ -13,6 +13,9 @@
 /* nの倍数切り上げ */
 #define LPC_ROUNDUP(val, n) ((((val) + ((n) - 1)) / (n)) * (n))
 
+/* 残差絶対値の最小値 */
+#define LPCAF_RESIDUAL_EPSILON 1e-6
+
 /* 内部エラー型 */
 typedef enum LPCErrorTag {
     LPC_ERROR_OK,
@@ -395,14 +398,130 @@ static LPCError LPC_CholeskyDecomposition(
     return LPC_ERROR_OK;
 }
 
+#if 1
+/* 補助関数法（前向き残差）による係数行列計算 */
+static double LPCAF_CalculateCoefMatrixAndVectorForward(
+        const double *data, uint32_t num_samples, uint32_t coef_order,
+        const double *a_vec, double **r_mat, double *r_vec)
+{
+    double obj_value;
+    uint32_t smpl, i, j;
+
+    assert(data != NULL);
+    assert(a_vec != NULL);
+    assert(r_mat != NULL);
+    assert(r_vec != NULL);
+    assert(num_samples > coef_order);
+
+    /* 行列を0初期化 */
+    for (i = 0; i < coef_order; i++) {
+        r_vec[i] = 0.0f;
+        for (j = 0; j < coef_order; j++) {
+            r_mat[i][j] = 0.0f;
+        }
+    }
+
+    obj_value = 0.0f;
+
+    for (smpl = coef_order; smpl < num_samples; smpl++) {
+        /* 残差計算 */
+        double residual = data[smpl];
+        double inv_residual;
+        for (i = 0; i < coef_order; i++) {
+            residual -= a_vec[i] * data[smpl - i - 1];
+        }
+        residual = fabs(residual);
+        obj_value += residual;
+        /* 小さすぎる残差は丸め込む（ゼERO割回避、正則化） */
+        residual = (residual < LPCAF_RESIDUAL_EPSILON) ? LPCAF_RESIDUAL_EPSILON : residual;
+        inv_residual = 1.0f / residual;
+        /* 係数行列に足し込み */
+        for (i = 0; i < coef_order; i++) {
+            r_vec[i] += data[smpl] * data[smpl - i - 1] * inv_residual;
+            for (j = i; j < coef_order; j++) {
+                r_mat[i][j] += data[smpl - i - 1] * data[smpl - j - 1] * inv_residual;
+            }
+        }
+    }
+
+    /* 対称要素に拡張 */
+    for (i = 0; i < coef_order; i++) {
+        for (j = i + 1; j < coef_order; j++) {
+            r_mat[j][i] = r_mat[i][j];
+        }
+    }
+
+    return obj_value / (num_samples - coef_order);
+}
+#else
+/* 補助関数法（前向き後ろ向き残差）による係数行列計算 */
+static double LPCAF_CalculateCoefMatrixAndVectorForwardBackward(
+        const double *data, uint32_t num_samples, uint32_t coef_order,
+        const double *a_vec, double **r_mat, double *r_vec)
+{
+    double obj_value;
+    uint32_t smpl, i, j;
+
+    assert(data != NULL);
+    assert(a_vec != NULL);
+    assert(r_mat != NULL);
+    assert(r_vec != NULL);
+    assert(num_samples > coef_order);
+
+    /* 行列を0初期化 */
+    for (i = 0; i < coef_order; i++) {
+        r_vec[i] = 0.0f;
+        for (j = 0; j < coef_order; j++) {
+            r_mat[i][j] = 0.0f;
+        }
+    }
+
+    obj_value = 0.0f;
+
+    for (smpl = coef_order; smpl < num_samples - coef_order; smpl++) {
+        /* 残差計算 */
+        double forward = data[smpl], backward = data[smpl];
+        double inv_forward, inv_backward;
+        for (i = 0; i < coef_order; i++) {
+            forward -= a_vec[i] * data[smpl - i - 1];
+            backward -= a_vec[i] * data[smpl + i + 1];
+        }
+        forward = fabs(forward);
+        backward = fabs(backward);
+        obj_value += (forward + backward);
+        /* 小さすぎる残差は丸め込む（ゼERO割回避、正則化） */
+        forward = (forward < LPCAF_RESIDUAL_EPSILON) ? LPCAF_RESIDUAL_EPSILON : forward;
+        backward = (backward < LPCAF_RESIDUAL_EPSILON) ? LPCAF_RESIDUAL_EPSILON : backward;
+        inv_forward = 1.0f / forward;
+        inv_backward = 1.0f / backward;
+        /* 係数行列に足し込み */
+        for (i = 0; i < coef_order; i++) {
+            r_vec[i] += data[smpl] * data[smpl - i - 1] * inv_forward;
+            r_vec[i] += data[smpl] * data[smpl + i + 1] * inv_backward;
+            for (j = i; j < coef_order; j++) {
+                r_mat[i][j] += data[smpl - i - 1] * data[smpl - j - 1] * inv_forward;
+                r_mat[i][j] += data[smpl + i + 1] * data[smpl + j + 1] * inv_backward;
+            }
+        }
+    }
+
+    /* 対称要素に拡張 */
+    for (i = 0; i < coef_order; i++) {
+        for (j = i + 1; j < coef_order; j++) {
+            r_mat[j][i] = r_mat[i][j];
+        }
+    }
+
+    return obj_value / (2 * (num_samples - (2 * coef_order)));
+}
+#endif
+
 /* 補助関数法による係数計算 */
 static LPCError LPC_CalculateCoefAF(
         struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order,
         const uint32_t max_num_iteration, const double obj_epsilon)
 {
-#define RESIDUAL_EPSILON 1e-6
-    uint32_t smpl, itr, i, j;
-    const double inv_num_samples = 1.0f / (num_samples - coef_order);
+    uint32_t itr, i;
     double *a_vec = lpcc->a_vec;
     double *r_vec = lpcc->e_vec;
     double **r_mat = lpcc->r_mat;
@@ -414,8 +533,6 @@ static LPCError LPC_CalculateCoefAF(
         return LPC_ERROR_INVALID_ARGUMENT;
     }
 
-    assert(num_samples > coef_order);
-
     /* 係数を0初期化 */
     for (i = 0; i < coef_order; i++) {
         a_vec[i] = 0.0f;
@@ -423,42 +540,10 @@ static LPCError LPC_CalculateCoefAF(
 
     prev_obj_value = FLT_MAX;
     for (itr = 0; itr < max_num_iteration; itr++) {
-        /* 行列を0初期化 */
-        for (i = 0; i < coef_order; i++) {
-            r_vec[i] = 0.0f;
-            for (j = 0; j < coef_order; j++) {
-                r_mat[i][j] = 0.0f;
-            }
-        }
         /* 係数行列要素の計算 */
-        obj_value = 0.0f;
-        for (smpl = coef_order; smpl < num_samples; smpl++) {
-            /* 残差計算 */
-            double residual = data[smpl];
-            double inv_residual;
-            for (i = 0; i < coef_order; i++) {
-                residual -= a_vec[i] * data[smpl - i - 1];
-            }
-            residual = fabs(residual);
-            obj_value += residual;
-            /* 小さすぎる残差は丸め込む（ゼERO割回避、正則化） */
-            residual = (residual < RESIDUAL_EPSILON) ? RESIDUAL_EPSILON : residual;
-            inv_residual = 1.0f / residual;
-            /* 係数行列に足し込み */
-            for (i = 0; i < coef_order; i++) {
-                r_vec[i] += data[smpl] * data[smpl - i - 1] * inv_residual;
-                for (j = i; j < coef_order; j++) {
-                    r_mat[i][j] += data[smpl - i - 1] * data[smpl - j - 1] * inv_residual;
-                }
-            }
-        }
-        obj_value *= inv_num_samples;
-        /* 対称要素に拡張 */
-        for (i = 0; i < coef_order; i++) {
-            for (j = i + 1; j < coef_order; j++) {
-                r_mat[j][i] = r_mat[i][j];
-            }
-        }
+        obj_value
+            = LPCAF_CalculateCoefMatrixAndVectorForward(
+                    data, num_samples, coef_order, a_vec, r_mat, r_vec);
         /* コレスキー分解で r_mat @ avec = r_vec を解く */
         if ((err = LPC_CholeskyDecomposition(
                         r_mat, (int32_t)coef_order, 
@@ -470,13 +555,6 @@ static LPCError LPC_CalculateCoefAF(
             return LPC_ERROR_OK;
         }
         assert(err == LPC_ERROR_OK);
-#if 0
-        printf("%2d %e, ", itr, obj_value);
-        for (i = 0; i < coef_order; i++) {
-            printf("%f, ", a_vec[i]);
-        }
-        printf("\n");
-#endif
         /* 収束判定 */
         if (fabs(prev_obj_value - obj_value) < obj_epsilon) {
             break;
