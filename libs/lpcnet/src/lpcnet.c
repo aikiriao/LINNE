@@ -296,7 +296,7 @@ static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
         const uint32_t nparams_per_unit = layer->num_params / nunits;
         const uint32_t nsmpls_per_unit = num_samples / nunits;
         double mean_loss = 0.0f;
-        LPCNET_ASSERT(LPCNET_MAX_PARAMS_PER_LAYER > nparams_per_unit);
+        LPCNET_ASSERT(LPCNET_MAX_PARAMS_PER_LAYER >= nparams_per_unit);
 
         /* ユニット数で分割できなくなったら探索を打ち切る */
         if (((layer->num_params % nunits) != 0)
