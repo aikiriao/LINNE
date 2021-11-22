@@ -542,9 +542,10 @@ static LPCError LPC_CalculateCoefAF(
         return LPC_ERROR_INVALID_ARGUMENT;
     }
 
-    /* 係数を0初期化 */
+    /* 係数をLebinson-Durbin法で初期化 */
+    (void)LPCCalculator_CalculateLPCCoefficients(lpcc, data, num_samples, a_vec, coef_order);
     for (i = 0; i < coef_order; i++) {
-        a_vec[i] = 0.0f;
+        a_vec[i] *= -1.0f;
     }
 
     prev_obj_value = FLT_MAX;
