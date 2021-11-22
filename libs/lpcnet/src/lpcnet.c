@@ -314,19 +314,16 @@ static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
                     pinput, nsmpls_per_unit, pparams, nparams_per_unit, 10);
             LPCNET_ASSERT(ret == LPC_APIRESULT_OK);
             /* その場で予測, 平均絶対値誤差を計算 */
-            for (smpl = 0; smpl < nparams_per_unit; smpl++) {
+            for (smpl = 0; smpl < nsmpls_per_unit; smpl++) {
                 double predict = 0.0f;
-                for (k = 0; k < nparams_per_unit; k++) {
-                    if (smpl >= (k + 1)) {
+                if (smpl < nparams_per_unit) {
+                    for (k = 0; k < smpl; k++) {
                         predict += pparams[k] * pinput[smpl - k - 1];
                     }
-                }
-                mean_loss += fabs(pinput[smpl] + predict);
-            }
-            for (; smpl < nsmpls_per_unit; smpl++) {
-                double predict = 0.0f;
-                for (k = 0; k < nparams_per_unit; k++) {
-                    predict += pparams[k] * pinput[smpl - k - 1];
+                } else {
+                    for (k = 0; k < nparams_per_unit; k++) {
+                        predict += pparams[k] * pinput[smpl - k - 1];
+                    } 
                 }
                 mean_loss += fabs(pinput[smpl] + predict);
             }
