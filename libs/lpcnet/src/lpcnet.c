@@ -284,7 +284,6 @@ static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
     double min_loss = FLT_MAX;
     uint32_t tmp_best_nunits = 0;
     double params_buffer[LPCNET_MAX_PARAMS_PER_LAYER];
-    double best_params[LPCNET_MAX_PARAMS_PER_LAYER];
 
     LPCNET_ASSERT(layer != NULL);
     LPCNET_ASSERT(lpcc != NULL);
@@ -309,9 +308,8 @@ static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
             uint32_t smpl, k;
             const double *pinput = &input[unit * nsmpls_per_unit];
             double *pparams = &params_buffer[unit * nparams_per_unit];
-            LPCApiResult ret;
-            ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
-                    pinput, nsmpls_per_unit, pparams, nparams_per_unit, 10);
+            LPCApiResult ret = LPCCalculator_CalculateLPCCoefficients(lpcc,
+                    pinput, nsmpls_per_unit, pparams, nparams_per_unit);
             LPCNET_ASSERT(ret == LPC_APIRESULT_OK);
             /* その場で予測, 平均絶対値誤差を計算 */
             for (smpl = 0; smpl < nsmpls_per_unit; smpl++) {
@@ -332,7 +330,6 @@ static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
         if (mean_loss < min_loss) {
             min_loss = mean_loss;
             tmp_best_nunits = nunits;
-            memcpy(best_params, params_buffer, sizeof(double) * layer->num_params);
         }
     }
 
@@ -343,9 +340,13 @@ static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
     {
         uint32_t i;
         const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
-        memcpy(layer->params, best_params, sizeof(double) * layer->num_params);
+        const uint32_t nsmpls_per_unit = num_samples / layer->num_units;
         for (unit = 0; unit < layer->num_units; unit++) {
+            const double *pinput = &input[unit * nsmpls_per_unit];
             double *pparams = &layer->params[unit * nparams_per_unit];
+            LPCApiResult ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
+                    pinput, nsmpls_per_unit, pparams, nparams_per_unit, 1);
+            LPCNET_ASSERT(ret == LPC_APIRESULT_OK);
             /* 順行伝播を行列演算で扱う都合上、パラメータ順序をリバース */
             for (i = 0; i < nparams_per_unit / 2; i++) {
                 double tmp = pparams[i];
