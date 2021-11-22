@@ -16,7 +16,7 @@
 #define LINNE_MAX_NUM_CHANNELS      8
 
 /* パラメータプリセット数 */
-#define LINNE_NUM_PARAMETER_PRESETS 3
+#define LINNE_NUM_PARAMETER_PRESETS 4
 
 /* API結果型 */
 typedef enum LINNEApiResultTag {
