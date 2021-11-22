@@ -519,7 +519,7 @@ static LPCError LPCAF_CalculateCoefMatrixAndVector(
         }
     }
 
-    (*pobj_value) = obj_value / (2 * (num_samples - (2 * coef_order)));
+    (*pobj_value) = obj_value / (2.0f * (num_samples - (2.0f * coef_order)));
 
     return LPC_ERROR_OK;
 }
