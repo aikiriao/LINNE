@@ -9,8 +9,8 @@
         array\
     }
 
-static const uint32_t num_params_preset1[] = {       4,   4 };
-static const uint32_t num_params_preset2[] = {       8,   8 };
+static const uint32_t num_params_preset1[] = {       8,   8 };
+static const uint32_t num_params_preset2[] = {  4,  16,   8 };
 static const uint32_t num_params_preset3[] = {  4,  32,  16 };
 
 /* パラメータプリセット配列 */
