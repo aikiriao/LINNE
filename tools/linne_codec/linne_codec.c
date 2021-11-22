@@ -49,8 +49,8 @@ static int do_encode(const char* in_filename, const char* out_filename, uint32_t
     /* エンコーダ作成 */
     config.max_num_channels = LINNE_MAX_NUM_CHANNELS;
     config.max_num_samples_per_block = 16 * 1024;
-    config.max_num_layers = 10;
-    config.max_num_parameters_per_layer = 32;
+    config.max_num_layers = 5;
+    config.max_num_parameters_per_layer = 128;
     if ((encoder = LINNEEncoder_Create(&config, NULL, 0)) == NULL) {
         fprintf(stderr, "Failed to create encoder handle. \n");
         return 1;
@@ -151,8 +151,8 @@ static int do_decode(const char* in_filename, const char* out_filename, uint8_t 
 
     /* デコーダハンドルの作成 */
     config.max_num_channels = LINNE_MAX_NUM_CHANNELS;
-    config.max_num_layers = 10;
-    config.max_num_parameters_per_layer = 32;
+    config.max_num_layers = 5;
+    config.max_num_parameters_per_layer = 128;
     config.check_crc = check_crc;
     if ((decoder = LINNEDecoder_Create(&config, NULL, 0)) == NULL) {
         fprintf(stderr, "Failed to create decoder handle. \n");
