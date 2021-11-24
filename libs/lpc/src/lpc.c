@@ -165,6 +165,8 @@ static LPCError LPC_CalculateAutoCorrelation(
 {
     uint32_t i, lag;
 
+    assert(num_samples >= order);
+
     /* 引数チェック */
     if (data == NULL || auto_corr == NULL) {
         return LPC_ERROR_INVALID_ARGUMENT;
