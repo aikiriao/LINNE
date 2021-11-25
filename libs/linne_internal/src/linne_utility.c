@@ -159,9 +159,9 @@ void LINNEPreemphasisFilter_CalculateCoefficient(
     LINNE_ASSERT(buffer != NULL);
 
     /* 相関の計算 */
-    curr = buffer[0] * pow(2.0f, -15);
+    curr = buffer[0];
     for (smpl = 0; smpl < num_samples - 1; smpl++) {
-        const double succ = buffer[smpl + 1] * pow(2.0f, -15);
+        const double succ = buffer[smpl + 1];
         corr[0] += curr * curr;
         corr[1] += curr * succ;
         curr = succ;
