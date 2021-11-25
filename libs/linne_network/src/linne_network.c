@@ -1,37 +1,15 @@
-#include "lpcnet.h"
+#include "linne_network.h"
 #include <math.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
 #include <float.h>
 #include "lpc.h"
+#include "linne_internal.h"
+#include "linne_utility.h"
 
-/* メモリアラインメント */
-#define LPCNET_MEMORY_ALIGNMENT 16
-
-/* レイヤーあたり最大パラメータ数 */
-#define LPCNET_MAX_PARAMS_PER_LAYER 128
-
-/* 符号関数: x > 0ならば1, x < 0ならば-1, x==0ならば0 */
-#define LPCNET_SIGN(x) (((x) > 0) - ((x) < 0))
-
-/* 2の冪数(1, 2, 4, 8, ...)か判定 */
-#define LPCNET_IS_POWERED_OF_2(x) (!((x) & ((x) - 1)))
-
-/* nの倍数への切り上げ */
-#define LPCNET_ROUNDUP(val, n) ((((val) + ((n) - 1)) / (n)) * (n))
-
-/* アサートマクロ */
-#ifdef NDEBUG
-/* 未使用変数警告を明示的に回避 */
-#define LPCNET_ASSERT(condition) ((void)(condition))
-#else
-#include <assert.h>
-#define LPCNET_ASSERT(condition) assert(condition)
-#endif
-
-/* LPCネットを構成するレイヤー */
-struct LPCNetLayer {
+/* LINNEネットを構成するレイヤー */
+struct LINNENetworkLayer {
     double *din; /* 入力信号バッファ */
     double *dout; /* 逆伝播信号バッファ */
     double *params; /* パラメータ（LPC係数） */
@@ -41,9 +19,9 @@ struct LPCNetLayer {
     uint32_t num_units; /* レイヤー内のユニット数 */
 };
 
-/* LPCネット */
-struct LPCNet {
-    struct LPCNetLayer **layers; /* レイヤー配列 */
+/* LINNEネット */
+struct LINNENetwork {
+    struct LINNENetworkLayer **layers; /* レイヤー配列 */
     void *layers_work; /* レイヤー配列の先頭領域 */
     uint32_t max_num_samples; /* 最大サンプル数 */
     int32_t max_num_layers; /* 最大レイヤー（層）数 */
@@ -54,8 +32,8 @@ struct LPCNet {
     int32_t num_layers; /* レイヤー数 */
 };
 
-/* LPCネットトレーナー */
-struct LPCNetTrainer {
+/* LINNEネットトレーナー */
+struct LINNENetworkTrainer {
     uint32_t max_num_layers; /* 最大層数 */
     uint32_t max_num_params_per_layer; /* レイヤーあたりパラメータ数 */
     double **momentum; /* モーメンタム */
@@ -69,13 +47,13 @@ struct LPCNetTrainer {
 };
 
 /* L1ノルムレイヤーのロス計算 */
-static double LPCL1Norm_Loss(const double *data, uint32_t num_samples)
+static double LINNEL1Norm_Loss(const double *data, uint32_t num_samples)
 {
     uint32_t smpl;
     double norm = 0.0f;
 
-    LPCNET_ASSERT(data != NULL);
-    LPCNET_ASSERT(num_samples > 0);
+    LINNE_ASSERT(data != NULL);
+    LINNE_ASSERT(num_samples > 0);
 
     for (smpl = 0; smpl < num_samples; smpl++) {
         norm += fabs(data[smpl]);
@@ -85,70 +63,70 @@ static double LPCL1Norm_Loss(const double *data, uint32_t num_samples)
 }
 
 /* L1ノルムレイヤーの誤差逆伝播 */
-static void LPCL1Norm_Backward(double *data, uint32_t num_samples)
+static void LINNEL1Norm_Backward(double *data, uint32_t num_samples)
 {
     uint32_t smpl;
 
-    LPCNET_ASSERT(data != NULL);
+    LINNE_ASSERT(data != NULL);
 
     for (smpl = 0; smpl < num_samples; smpl++) {
-        data[smpl] = (double)LPCNET_SIGN(data[smpl]) / num_samples;
+        data[smpl] = (double)LINNEUTILITY_SIGN(data[smpl]) / num_samples;
     }
 }
 
-/* LPCネットレイヤー作成に必要なワークサイズ計算 */
-static int32_t LPCNetLayer_CalculateWorkSize(uint32_t num_samples, uint32_t num_params)
+/* LINNEネットレイヤー作成に必要なワークサイズ計算 */
+static int32_t LINNENetworkLayer_CalculateWorkSize(uint32_t num_samples, uint32_t num_params)
 {
     int32_t work_size;
 
-    work_size = sizeof(struct LPCNetLayer) + LPCNET_MEMORY_ALIGNMENT;
-    work_size += 2 * (sizeof(double) * num_samples + LPCNET_MEMORY_ALIGNMENT);
-    work_size += 2 * (sizeof(double) * num_params + LPCNET_MEMORY_ALIGNMENT);
+    work_size = sizeof(struct LINNENetworkLayer) + LINNE_MEMORY_ALIGNMENT;
+    work_size += 2 * (sizeof(double) * num_samples + LINNE_MEMORY_ALIGNMENT);
+    work_size += 2 * (sizeof(double) * num_params + LINNE_MEMORY_ALIGNMENT);
 
     return work_size;
 }
 
-/* LPCネットレイヤー作成 */
-static struct LPCNetLayer *LPCNetLayer_Create(
+/* LINNEネットレイヤー作成 */
+static struct LINNENetworkLayer *LINNENetworkLayer_Create(
         uint32_t num_samples, uint32_t num_params, void *work, int32_t work_size)
 {
     uint32_t i;
-    struct LPCNetLayer *layer;
+    struct LINNENetworkLayer *layer;
     uint8_t *work_ptr;
 
     /* 引数チェック */
     if ((work == NULL)
-            || (work_size < LPCNetLayer_CalculateWorkSize(num_samples, num_params))) {
+            || (work_size < LINNENetworkLayer_CalculateWorkSize(num_samples, num_params))) {
         return NULL;
     }
 
     work_ptr = (uint8_t *)work;
 
     /* 構造体領域確保 */
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
-    layer = (struct LPCNetLayer *)work_ptr;
-    work_ptr += sizeof(struct LPCNetLayer);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
+    layer = (struct LINNENetworkLayer *)work_ptr;
+    work_ptr += sizeof(struct LINNENetworkLayer);
     layer->num_samples = num_samples;
     layer->num_params = num_params;
 
     /* 入出力バッファ領域確保 */
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
     layer->din = (double *)work_ptr;
     work_ptr += sizeof(double) * num_samples;
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
     layer->dout = (double *)work_ptr;
     work_ptr += sizeof(double) * num_samples;
 
     /* パラメータ領域確保 */
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
     layer->params = (double *)work_ptr;
     work_ptr += sizeof(double) * num_params;
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
     layer->dparams = (double *)work_ptr;
     work_ptr += sizeof(double) * num_params;
 
     /* バッファオーバーランチェック */
-    LPCNET_ASSERT((work_ptr - (uint8_t *)work) <= work_size);
+    LINNE_ASSERT((work_ptr - (uint8_t *)work) <= work_size);
 
     /* 確保した領域を0埋め */
     for (i = 0; i < layer->num_samples; i++) {
@@ -166,24 +144,24 @@ static struct LPCNetLayer *LPCNetLayer_Create(
     return layer;
 }
 
-/* LPCネットレイヤー破棄 */
-static void LPCNetLayer_Destroy(struct LPCNetLayer *layer)
+/* LINNEネットレイヤー破棄 */
+static void LINNENetworkLayer_Destroy(struct LINNENetworkLayer *layer)
 {
     /* 特に何もしない */
-    LPCNET_ASSERT(layer != NULL);
+    LINNE_ASSERT(layer != NULL);
 }
 
-/* LPCネットレイヤーの順行伝播 */
-static void LPCNetLayer_Forward(
-        struct LPCNetLayer *layer, double *data, uint32_t num_samples)
+/* LINNEネットレイヤーの順行伝播 */
+static void LINNENetworkLayer_Forward(
+        struct LINNENetworkLayer *layer, double *data, uint32_t num_samples)
 {
     uint32_t unit, i, j;
     uint32_t nsmpls_per_unit, nparams_per_unit;
 
-    LPCNET_ASSERT(layer != NULL);
-    LPCNET_ASSERT(data != NULL);
-    LPCNET_ASSERT(num_samples <= layer->num_samples);
-    LPCNET_ASSERT(layer->num_units >= 1);
+    LINNE_ASSERT(layer != NULL);
+    LINNE_ASSERT(data != NULL);
+    LINNE_ASSERT(num_samples <= layer->num_samples);
+    LINNE_ASSERT(layer->num_units >= 1);
 
     /* 入力をコピー */
     memcpy(layer->din, data, sizeof(double) * num_samples);
@@ -220,17 +198,17 @@ static void LPCNetLayer_Forward(
     }
 }
 
-/* LPCネットレイヤーの誤差逆伝播 */
-static void LPCNetLayer_Backward(
-        struct LPCNetLayer *layer, double *data, uint32_t num_samples)
+/* LINNEネットレイヤーの誤差逆伝播 */
+static void LINNENetworkLayer_Backward(
+        struct LINNENetworkLayer *layer, double *data, uint32_t num_samples)
 {
     uint32_t unit, i, j;
     uint32_t nsmpls_per_unit, nparams_per_unit;
 
-    LPCNET_ASSERT(layer != NULL);
-    LPCNET_ASSERT(data != NULL);
-    LPCNET_ASSERT(num_samples <= layer->num_samples);
-    LPCNET_ASSERT(layer->num_units >= 1);
+    LINNE_ASSERT(layer != NULL);
+    LINNE_ASSERT(data != NULL);
+    LINNE_ASSERT(num_samples <= layer->num_samples);
+    LINNE_ASSERT(layer->num_units >= 1);
 
     /* 逆伝播信号をコピー */
     memcpy(layer->dout, data, sizeof(double) * num_samples);
@@ -276,26 +254,26 @@ static void LPCNetLayer_Backward(
 }
 
 /* 最適なユニット数とパラメータの探索・設定 */
-static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
-        struct LPCNetLayer *layer, struct LPCCalculator *lpcc,
+static void LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
+        struct LINNENetworkLayer *layer, struct LPCCalculator *lpcc,
         const double *input, uint32_t num_samples, const uint32_t max_num_units)
 {
     uint32_t unit, nunits;
     double min_loss = FLT_MAX;
     uint32_t tmp_best_nunits = 0;
-    double params_buffer[LPCNET_MAX_PARAMS_PER_LAYER];
+    double params_buffer[LINNE_NETWORK_MAX_PARAMS_PER_LAYER];
 
-    LPCNET_ASSERT(layer != NULL);
-    LPCNET_ASSERT(lpcc != NULL);
-    LPCNET_ASSERT(input != NULL);
-    LPCNET_ASSERT(layer->num_params >= max_num_units);
-    LPCNET_ASSERT(LPCNET_IS_POWERED_OF_2(max_num_units));
+    LINNE_ASSERT(layer != NULL);
+    LINNE_ASSERT(lpcc != NULL);
+    LINNE_ASSERT(input != NULL);
+    LINNE_ASSERT(layer->num_params >= max_num_units);
+    LINNE_ASSERT(LINNEUTILITY_IS_POWERED_OF_2(max_num_units));
 
     for (nunits = 1; nunits <= max_num_units; nunits <<= 1) {
         const uint32_t nparams_per_unit = layer->num_params / nunits;
         const uint32_t nsmpls_per_unit = num_samples / nunits;
         double mean_loss = 0.0f;
-        LPCNET_ASSERT(LPCNET_MAX_PARAMS_PER_LAYER >= nparams_per_unit);
+        LINNE_ASSERT(LINNE_NETWORK_MAX_PARAMS_PER_LAYER >= nparams_per_unit);
 
         /* ユニット数で分割できなくなったら探索を打ち切る */
         if (((layer->num_params % nunits) != 0)
@@ -308,9 +286,9 @@ static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
             uint32_t smpl, k;
             const double *pinput = &input[unit * nsmpls_per_unit];
             double *pparams = &params_buffer[unit * nparams_per_unit];
-            LPCApiResult ret = LPCCalculator_CalculateLPCCoefficients(lpcc,
-                    pinput, nsmpls_per_unit, pparams, nparams_per_unit);
-            LPCNET_ASSERT(ret == LPC_APIRESULT_OK);
+            LPCApiResult ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
+                    pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT);
+            LINNE_ASSERT(ret == LPC_APIRESULT_OK);
             /* その場で予測, 平均絶対値誤差を計算 */
             for (smpl = 0; smpl < nsmpls_per_unit; smpl++) {
                 double residual = pinput[smpl];
@@ -334,7 +312,7 @@ static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
     }
 
     /* 最適なユニット数とパラメータの設定 */
-    LPCNET_ASSERT(tmp_best_nunits != 0);
+    LINNE_ASSERT(tmp_best_nunits != 0);
     layer->num_units = tmp_best_nunits;
 
     {
@@ -345,8 +323,8 @@ static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
             const double *pinput = &input[unit * nsmpls_per_unit];
             double *pparams = &layer->params[unit * nparams_per_unit];
             LPCApiResult ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
-                    pinput, nsmpls_per_unit, pparams, nparams_per_unit, 1);
-            LPCNET_ASSERT(ret == LPC_APIRESULT_OK);
+                    pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION);
+            LINNE_ASSERT(ret == LPC_APIRESULT_OK);
             /* 順行伝播を行列演算で扱う都合上、パラメータ順序をリバース */
             for (i = 0; i < nparams_per_unit / 2; i++) {
                 double tmp = pparams[i];
@@ -357,8 +335,8 @@ static void LPCNetLayer_SetOptimalNumUnitsAndParameter(
     }
 }
 
-/* LPCネット作成に必要なワークサイズの計算 */
-int32_t LPCNet_CalculateWorkSize(
+/* LINNEネット作成に必要なワークサイズの計算 */
+int32_t LINNENetwork_CalculateWorkSize(
         uint32_t max_num_samples, uint32_t max_num_layers, uint32_t max_num_parameters_per_layer)
 {
     int32_t work_size;
@@ -370,21 +348,21 @@ int32_t LPCNet_CalculateWorkSize(
         return -1;
     }
 
-    work_size = sizeof(struct LPCNet) + LPCNET_MEMORY_ALIGNMENT;
-    work_size += sizeof(struct LPCNetLayer *) * max_num_layers;
-    work_size += max_num_layers * (size_t)LPCNetLayer_CalculateWorkSize(max_num_samples, max_num_parameters_per_layer);
+    work_size = sizeof(struct LINNENetwork) + LINNE_MEMORY_ALIGNMENT;
+    work_size += sizeof(struct LINNENetworkLayer *) * max_num_layers;
+    work_size += max_num_layers * (size_t)LINNENetworkLayer_CalculateWorkSize(max_num_samples, max_num_parameters_per_layer);
     work_size += LPCCalculator_CalculateWorkSize(max_num_parameters_per_layer);
-    work_size += (sizeof(double) * max_num_samples + LPCNET_MEMORY_ALIGNMENT);
+    work_size += (sizeof(double) * max_num_samples + LINNE_MEMORY_ALIGNMENT);
 
     return work_size;
 }
 
-/* LPCネット作成 */
-struct LPCNet *LPCNet_Create(
+/* LINNEネット作成 */
+struct LINNENetwork *LINNENetwork_Create(
         uint32_t max_num_samples, uint32_t max_num_layers, uint32_t max_num_parameters_per_layer, void *work, int32_t work_size)
 {
     uint32_t l;
-    struct LPCNet *net;
+    struct LINNENetwork *net;
     uint8_t *work_ptr;
 
     /* 引数チェック */
@@ -392,16 +370,16 @@ struct LPCNet *LPCNet_Create(
             || (max_num_layers == 0)
             || (max_num_parameters_per_layer == 0)
             || (work == NULL)
-            || (work_size < LPCNet_CalculateWorkSize(max_num_samples, max_num_layers, max_num_parameters_per_layer))) {
+            || (work_size < LINNENetwork_CalculateWorkSize(max_num_samples, max_num_layers, max_num_parameters_per_layer))) {
         return NULL;
     }
 
     work_ptr = (uint8_t *)work;
 
     /* 構造体領域確保 */
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
-    net = (struct LPCNet *)work_ptr;
-    work_ptr += sizeof(struct LPCNet);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
+    net = (struct LINNENetwork *)work_ptr;
+    work_ptr += sizeof(struct LINNENetwork);
 
     /* 構造体メンバ設定 */
     net->max_num_layers = (int32_t)max_num_layers;
@@ -410,19 +388,19 @@ struct LPCNet *LPCNet_Create(
     net->num_layers = (int32_t)max_num_layers; /* ひとまず最大数で確保 */
     net->num_samples = max_num_samples; /* ひとまず最大数で確保 */
 
-    /* LPCネットレイヤー作成 */
+    /* LINNEネットレイヤー作成 */
     {
-        const int32_t layer_work_size = LPCNetLayer_CalculateWorkSize(max_num_samples, max_num_parameters_per_layer);
+        const int32_t layer_work_size = LINNENetworkLayer_CalculateWorkSize(max_num_samples, max_num_parameters_per_layer);
 
         /* ポインタ領域確保 */
-        work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
-        net->layers = (struct LPCNetLayer **)work_ptr;
-        work_ptr += (sizeof(struct LPCNetLayer *) * max_num_layers);
+        work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
+        net->layers = (struct LINNENetworkLayer **)work_ptr;
+        work_ptr += (sizeof(struct LINNENetworkLayer *) * max_num_layers);
 
         /* レイヤー領域確保 */
         net->layers_work = work_ptr;
         for (l = 0; l < max_num_layers; l++) {
-            net->layers[l] = LPCNetLayer_Create(max_num_samples, max_num_parameters_per_layer, work_ptr, layer_work_size);
+            net->layers[l] = LINNENetworkLayer_Create(max_num_samples, max_num_parameters_per_layer, work_ptr, layer_work_size);
             work_ptr += layer_work_size;
         }
     }
@@ -435,41 +413,41 @@ struct LPCNet *LPCNet_Create(
     }
 
     /* データバッファ領域確保 */
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
     net->data_buffer = (double *)work_ptr;
     work_ptr += sizeof(double) * max_num_samples;
 
     /* バッファオーバーランチェック */
-    LPCNET_ASSERT(((uint8_t *)work - work_ptr) <= work_size);
+    LINNE_ASSERT(((uint8_t *)work - work_ptr) <= work_size);
 
     return net;
 }
 
 /* LPCネット破棄 */
-void LPCNet_Destroy(struct LPCNet *net)
+void LINNENetwork_Destroy(struct LINNENetwork *net)
 {
     if (net != NULL) {
         int32_t l;
         for (l = 0; l < net->num_layers; l++) {
-            LPCNetLayer_Destroy(net->layers[l]);
+            LINNENetworkLayer_Destroy(net->layers[l]);
         }
         LPCCalculator_Destroy(net->lpcc);
     }
 }
 
 /* 各層のパラメータ数を設定 */
-void LPCNet_SetLayerStructure(struct LPCNet *net, uint32_t num_samples, uint32_t num_layers, const uint32_t *num_params_list)
+void LINNENetwork_SetLayerStructure(struct LINNENetwork *net, uint32_t num_samples, uint32_t num_layers, const uint32_t *num_params_list)
 {
     uint8_t *work_ptr;
     int32_t l;
     uint32_t max_num_params_per_layer;
 
-    LPCNET_ASSERT(net != NULL);
-    LPCNET_ASSERT(num_params_list != NULL);
-    LPCNET_ASSERT(num_layers > 0);
-    LPCNET_ASSERT((int32_t)num_layers <= net->max_num_layers);
-    LPCNET_ASSERT(num_samples > 0);
-    LPCNET_ASSERT(num_samples <= net->max_num_samples);
+    LINNE_ASSERT(net != NULL);
+    LINNE_ASSERT(num_params_list != NULL);
+    LINNE_ASSERT(num_layers > 0);
+    LINNE_ASSERT((int32_t)num_layers <= net->max_num_layers);
+    LINNE_ASSERT(num_samples > 0);
+    LINNE_ASSERT(num_samples <= net->max_num_samples);
 
     /* 最大の層あたりパラメータ数のチェック */
     max_num_params_per_layer = 0;
@@ -478,20 +456,20 @@ void LPCNet_SetLayerStructure(struct LPCNet *net, uint32_t num_samples, uint32_t
             max_num_params_per_layer = num_params_list[l];
         }
     }
-    LPCNET_ASSERT(max_num_params_per_layer > 0);
-    LPCNET_ASSERT(max_num_params_per_layer <= net->max_num_params);
+    LINNE_ASSERT(max_num_params_per_layer > 0);
+    LINNE_ASSERT(max_num_params_per_layer <= net->max_num_params);
 
     /* 現在確保しているレイヤーを破棄 */
     for (l = 0; l < net->num_layers; l++) {
-        LPCNetLayer_Destroy(net->layers[l]);
+        LINNENetworkLayer_Destroy(net->layers[l]);
     }
 
     /* 渡された配列パラメータ情報に従ってレイヤー作成 */
     work_ptr = (uint8_t *)net->layers_work;
     for (l = 0; l < (int32_t)num_layers; l++) {
-        const int32_t work_size = LPCNetLayer_CalculateWorkSize(num_samples, num_params_list[l]);
-        net->layers[l] = LPCNetLayer_Create(num_samples, num_params_list[l], work_ptr, work_size);
-        LPCNET_ASSERT(net->layers[l] != NULL);
+        const int32_t work_size = LINNENetworkLayer_CalculateWorkSize(num_samples, num_params_list[l]);
+        net->layers[l] = LINNENetworkLayer_Create(num_samples, num_params_list[l], work_ptr, work_size);
+        LINNE_ASSERT(net->layers[l] != NULL);
         work_ptr += work_size;
     }
 
@@ -501,66 +479,66 @@ void LPCNet_SetLayerStructure(struct LPCNet *net, uint32_t num_samples, uint32_t
 }
 
 /* ロス計算 同時に残差を計算にdataに書き込む */
-double LPCNet_CalculateLoss(struct LPCNet *net, double *data, uint32_t num_samples)
+double LINNENetwork_CalculateLoss(struct LINNENetwork *net, double *data, uint32_t num_samples)
 {
     int32_t l;
 
-    LPCNET_ASSERT(net != NULL);
-    LPCNET_ASSERT(data != NULL);
+    LINNE_ASSERT(net != NULL);
+    LINNE_ASSERT(data != NULL);
 
     /* 順行伝播 */
     for (l = 0; l < net->num_layers; l++) {
-        LPCNetLayer_Forward(net->layers[l], data, num_samples);
+        LINNENetworkLayer_Forward(net->layers[l], data, num_samples);
     }
 
     /* ロス計算 */
-    return LPCL1Norm_Loss(data, num_samples);
+    return LINNEL1Norm_Loss(data, num_samples);
 }
 
 /* 入力から勾配を計算（結果は内部変数にセット） */
-static double LPCNet_CalculateGradient(
-        struct LPCNet *net, double *data, uint32_t num_samples)
+static double LINNENetwork_CalculateGradient(
+        struct LINNENetwork *net, double *data, uint32_t num_samples)
 {
     int32_t l;
     double loss;
 
-    LPCNET_ASSERT(net != NULL);
-    LPCNET_ASSERT(data != NULL);
+    LINNE_ASSERT(net != NULL);
+    LINNE_ASSERT(data != NULL);
 
     /* 順行伝播 */
-    loss = LPCNet_CalculateLoss(net, data, num_samples);
+    loss = LINNENetwork_CalculateLoss(net, data, num_samples);
 
     /* 誤差勾配計算 */
-    LPCL1Norm_Backward(data, num_samples);
+    LINNEL1Norm_Backward(data, num_samples);
 
     /* 誤差逆伝播 */
     for (l = net->num_layers - 1; l >= 0; l--) {
-        LPCNetLayer_Backward(net->layers[l], data, num_samples);
+        LINNENetworkLayer_Backward(net->layers[l], data, num_samples);
     }
 
     return loss;
 }
 
 /* Levinson-Durbin法に基づく最適なユニット数とパラメータの設定 */
-void LPCNet_SetUnitsAndParametersByLevinsonDurbin(
-        struct LPCNet *net, const double *input, uint32_t num_samples)
+void LINNENetwork_SetUnitsAndParametersByLevinsonDurbin(
+        struct LINNENetwork *net, const double *input, uint32_t num_samples)
 {
     int32_t l;
 
-    LPCNET_ASSERT(net != NULL);
-    LPCNET_ASSERT(input != NULL);
-    LPCNET_ASSERT(num_samples <= net->num_samples);
+    LINNE_ASSERT(net != NULL);
+    LINNE_ASSERT(input != NULL);
+    LINNE_ASSERT(num_samples <= net->num_samples);
 
     memcpy(net->data_buffer, input, sizeof(double) * num_samples);
     for (l = 0; l < net->num_layers; l++) {
-        LPCNetLayer_SetOptimalNumUnitsAndParameter(
+        LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
                 net->layers[l], net->lpcc, net->data_buffer, num_samples, net->layers[l]->num_params);
-        LPCNetLayer_Forward(net->layers[l], net->data_buffer, num_samples);
+        LINNENetworkLayer_Forward(net->layers[l], net->data_buffer, num_samples);
     }
 }
 
 /* パラメータのクリア */
-void LPCNet_ResetParameters(struct LPCNet *net)
+void LINNENetwork_ResetParameters(struct LINNENetwork *net)
 {
     uint32_t l, i;
 
@@ -572,14 +550,14 @@ void LPCNet_ResetParameters(struct LPCNet *net)
 }
 
 /* 各レイヤーのユニット数取得 */
-void LPCNet_GetLayerNumUnits(
-        const struct LPCNet *net, uint32_t *num_units_buffer, const uint32_t buffer_size)
+void LINNENetwork_GetLayerNumUnits(
+        const struct LINNENetwork *net, uint32_t *num_units_buffer, const uint32_t buffer_size)
 {
     int32_t l;
 
-    LPCNET_ASSERT(net != NULL);
-    LPCNET_ASSERT(num_units_buffer != NULL);
-    LPCNET_ASSERT(buffer_size >= (uint32_t)net->num_layers);
+    LINNE_ASSERT(net != NULL);
+    LINNE_ASSERT(num_units_buffer != NULL);
+    LINNE_ASSERT(buffer_size >= (uint32_t)net->num_layers);
 
     for (l = 0; l < net->num_layers; l++) {
         num_units_buffer[l] = net->layers[l]->num_units;
@@ -587,22 +565,22 @@ void LPCNet_GetLayerNumUnits(
 }
 
 /* パラメータ取得 */
-void LPCNet_GetParameters(
-        const struct LPCNet *net, double **params_buffer,
+void LINNENetwork_GetParameters(
+        const struct LINNENetwork *net, double **params_buffer,
         const uint32_t buffer_num_layers, const uint32_t buffer_num_params_per_layer)
 {
     int32_t l;
 
-    LPCNET_ASSERT(net != NULL);
-    LPCNET_ASSERT(params_buffer != NULL);
-    LPCNET_ASSERT(buffer_num_layers >= (uint32_t)net->num_layers);
+    LINNE_ASSERT(net != NULL);
+    LINNE_ASSERT(params_buffer != NULL);
+    LINNE_ASSERT(buffer_num_layers >= (uint32_t)net->num_layers);
 
     for (l = 0; l < net->num_layers; l++) {
         uint32_t u, i;
-        const struct LPCNetLayer *layer = net->layers[l];
+        const struct LINNENetworkLayer *layer = net->layers[l];
         const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
-        LPCNET_ASSERT(params_buffer[l] != NULL);
-        LPCNET_ASSERT(buffer_num_params_per_layer >= layer->num_params);
+        LINNE_ASSERT(params_buffer[l] != NULL);
+        LINNE_ASSERT(buffer_num_params_per_layer >= layer->num_params);
         /* 一旦バッファ領域にコピー */
         memcpy(params_buffer[l], layer->params, sizeof(double) * layer->num_params);
         /* ユニット毎にパラメータ順序をリバース */
@@ -618,26 +596,26 @@ void LPCNet_GetParameters(
 }
 
 /* 入力データからサンプルあたりの推定符号長を求める */
-double LPCNet_EstimateCodeLength(
-        struct LPCNet *net,
+double LINNENetwork_EstimateCodeLength(
+        struct LINNENetwork *net,
         const double *data, uint32_t num_samples, uint32_t bits_per_sample)
 {
     double tmp_length;
     LPCApiResult ret;
 
-    LPCNET_ASSERT(net != NULL);
-    LPCNET_ASSERT(data != NULL);
+    LINNE_ASSERT(net != NULL);
+    LINNE_ASSERT(data != NULL);
 
     /* TODO: 仮実装。1層目のパラメータのみを用いて推定 */
     ret = LPCCalculator_EstimateCodeLength(net->lpcc,
             data, num_samples, bits_per_sample, net->layers[0]->num_params, &tmp_length);
-    LPCNET_ASSERT(ret == LPC_APIRESULT_OK);
+    LINNE_ASSERT(ret == LPC_APIRESULT_OK);
 
     return tmp_length;
 }
 
-/* LPCネットトレーナー作成に必要なワークサイズ計算 */
-int32_t LPCNetTrainer_CalculateWorkSize(uint32_t max_num_layers, uint32_t max_num_params_per_layer)
+/* LINNEネットトレーナー作成に必要なワークサイズ計算 */
+int32_t LINNENetworkTrainer_CalculateWorkSize(uint32_t max_num_layers, uint32_t max_num_params_per_layer)
 {
     int32_t work_size;
 
@@ -646,116 +624,116 @@ int32_t LPCNetTrainer_CalculateWorkSize(uint32_t max_num_layers, uint32_t max_nu
         return -1;
     }
 
-    work_size = sizeof(struct LPCNetTrainer) + LPCNET_MEMORY_ALIGNMENT;
+    work_size = sizeof(struct LINNENetworkTrainer) + LINNE_MEMORY_ALIGNMENT;
 
     /* For momentum */
-    work_size += sizeof(double *) * max_num_layers + LPCNET_MEMORY_ALIGNMENT;
-    work_size += max_num_layers * max_num_params_per_layer * sizeof(double) + LPCNET_MEMORY_ALIGNMENT;
+    work_size += sizeof(double *) * max_num_layers + LINNE_MEMORY_ALIGNMENT;
+    work_size += max_num_layers * max_num_params_per_layer * sizeof(double) + LINNE_MEMORY_ALIGNMENT;
 
 #if 0
     /* For AdaGrad */
-    work_size += sizeof(double *) * max_num_layers + LPCNET_MEMORY_ALIGNMENT;
-    work_size += max_num_layers * max_num_params_per_layer * sizeof(double) + LPCNET_MEMORY_ALIGNMENT;
+    work_size += sizeof(double *) * max_num_layers + LINNE_MEMORY_ALIGNMENT;
+    work_size += max_num_layers * max_num_params_per_layer * sizeof(double) + LINNE_MEMORY_ALIGNMENT;
 
     /* For Adam */
-    work_size += 2 * (sizeof(double *) * max_num_layers + LPCNET_MEMORY_ALIGNMENT);
-    work_size += 2 * (max_num_layers * max_num_params_per_layer * sizeof(double) + LPCNET_MEMORY_ALIGNMENT);
+    work_size += 2 * (sizeof(double *) * max_num_layers + LINNE_MEMORY_ALIGNMENT);
+    work_size += 2 * (max_num_layers * max_num_params_per_layer * sizeof(double) + LINNE_MEMORY_ALIGNMENT);
 #endif
 
     return work_size;
 }
 
-/* LPCネットトレーナー作成 */
-struct LPCNetTrainer *LPCNetTrainer_Create(
+/* LINNEネットトレーナー作成 */
+struct LINNENetworkTrainer *LINNENetworkTrainer_Create(
         uint32_t max_num_layers, uint32_t max_num_params_per_layer, void *work, int32_t work_size)
 {
     uint32_t l;
-    struct LPCNetTrainer *trainer;
+    struct LINNENetworkTrainer *trainer;
     uint8_t *work_ptr;
 
     /* 引数チェック */
     if ((max_num_layers == 0) || (max_num_params_per_layer == 0) || (work == NULL)
-            || (work_size < LPCNetTrainer_CalculateWorkSize(max_num_layers, max_num_params_per_layer))) {
+            || (work_size < LINNENetworkTrainer_CalculateWorkSize(max_num_layers, max_num_params_per_layer))) {
         return NULL;
     }
 
     work_ptr = (uint8_t *)work;
 
     /* 構造体領域確保 */
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
-    trainer = (struct LPCNetTrainer *)work_ptr;
-    work_ptr += sizeof(struct LPCNetTrainer);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
+    trainer = (struct LINNENetworkTrainer *)work_ptr;
+    work_ptr += sizeof(struct LINNENetworkTrainer);
 
     trainer->max_num_layers = max_num_layers;
     trainer->max_num_params_per_layer = max_num_params_per_layer;
 
     /* For momentum */
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
     trainer->momentum = (double **)work_ptr;
     work_ptr += sizeof(double *) * max_num_layers;
     for (l = 0; l < max_num_layers; l++) {
-        work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+        work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
         trainer->momentum[l] = (double *)work_ptr;
         work_ptr += sizeof(double) * max_num_params_per_layer;
     }
 
 #if 0
     /* For AdaGrad */
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
     trainer->grad_rs = (double **)work_ptr;
     work_ptr += sizeof(double *) * max_num_layers;
     for (l = 0; l < max_num_layers; l++) {
-        work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+        work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
         trainer->grad_rs[l] = (double *)work_ptr;
         work_ptr += sizeof(double) * max_num_params_per_layer;
     }
 
     /* For Adam */
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
     trainer->m = (double **)work_ptr;
     work_ptr += sizeof(double *) * max_num_layers;
     for (l = 0; l < max_num_layers; l++) {
-        work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+        work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
         trainer->m[l] = (double *)work_ptr;
         work_ptr += sizeof(double) * max_num_params_per_layer;
     }
-    work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+    work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
     trainer->v = (double **)work_ptr;
     work_ptr += sizeof(double *) * max_num_layers;
     for (l = 0; l < max_num_layers; l++) {
-        work_ptr = (uint8_t *)LPCNET_ROUNDUP((uintptr_t)work_ptr, LPCNET_MEMORY_ALIGNMENT);
+        work_ptr = (uint8_t *)LINNEUTILITY_ROUNDUP((uintptr_t)work_ptr, LINNE_MEMORY_ALIGNMENT);
         trainer->v[l] = (double *)work_ptr;
         work_ptr += sizeof(double) * max_num_params_per_layer;
     }
 #endif
 
     /* バッファオーバーランチェック */
-    LPCNET_ASSERT((work_ptr - (uint8_t *)work) <= work_size);
+    LINNE_ASSERT((work_ptr - (uint8_t *)work) <= work_size);
 
     return trainer;
 }
 
-/* LPCネットトレーナー破棄 */
-void LPCNetTrainer_Destroy(struct LPCNetTrainer *trainer)
+/* LINNEネットトレーナー破棄 */
+void LINNENetworkTrainer_Destroy(struct LINNENetworkTrainer *trainer)
 {
     /* 特に何もしない */
-    LPCNET_ASSERT(trainer != NULL);
+    LINNE_ASSERT(trainer != NULL);
 }
 
 /* 学習 */
-void LPCNetTrainer_Train(struct LPCNetTrainer *trainer,
-        struct LPCNet *net, const double *input, uint32_t num_samples,
+void LINNENetworkTrainer_Train(struct LINNENetworkTrainer *trainer,
+        struct LINNENetwork *net, const double *input, uint32_t num_samples,
         uint32_t max_num_iteration, double learning_rate, double loss_epsilon)
 {
     uint32_t itr, i;
     int32_t l;
     double loss, prev_loss = FLT_MAX;
 
-    LPCNET_ASSERT(trainer != NULL);
-    LPCNET_ASSERT(net != NULL);
-    LPCNET_ASSERT(input != NULL);
-    LPCNET_ASSERT(num_samples <= net->num_samples);
-    LPCNET_ASSERT(loss_epsilon >= 0.0f);
+    LINNE_ASSERT(trainer != NULL);
+    LINNE_ASSERT(net != NULL);
+    LINNE_ASSERT(input != NULL);
+    LINNE_ASSERT(num_samples <= net->num_samples);
+    LINNE_ASSERT(loss_epsilon >= 0.0f);
 
     /* モーメンタムを初期化 */
     for (l = 0; l < net->num_layers; l++) {
@@ -780,9 +758,9 @@ void LPCNetTrainer_Train(struct LPCNetTrainer *trainer,
     /* 学習繰り返し */
     for (itr = 0; itr < max_num_iteration; itr++) {
         memcpy(net->data_buffer, input, sizeof(double) * num_samples);
-        loss = LPCNet_CalculateGradient(net, net->data_buffer, num_samples);
+        loss = LINNENetwork_CalculateGradient(net, net->data_buffer, num_samples);
         for (l = 0; l < net->num_layers; l++) {
-            struct LPCNetLayer *layer = net->layers[l];
+            struct LINNENetworkLayer *layer = net->layers[l];
             for (i = 0; i < layer->num_params; i++) {
 #if 1
                 /* Momentum */

@@ -8,7 +8,7 @@
 #include "byte_array.h"
 #include "bit_stream.h"
 #include "lpc.h"
-#include "lpcnet.h"
+#include "linne_network.h"
 #include "linne_coder.h"
 
 /* エンコーダハンドル */
@@ -22,8 +22,8 @@ struct LINNEEncoder {
     uint8_t set_parameter; /* パラメータセット済み？ */
     struct LINNEPreemphasisFilter **pre_emphasis; /* プリエンファシスフィルタ */
     int32_t **pre_emphasis_prev; /* プリエンファシスフィルタの直前のサンプル */
-    struct LPCNet *lpcnet; /* LPCネットワーク */
-    struct LPCNetTrainer *trainer; /* LPCネットワークトレーナー */
+    struct LINNENetwork *lpcnet; /* LPCネットワーク */
+    struct LINNENetworkTrainer *trainer; /* LPCネットワークトレーナー */
     double ***params_double; /* LPC係数(double) */
     int32_t ***params_int; /* LPC係数(int) */
     uint32_t **num_units; /* 各層のユニット数 */
@@ -210,14 +210,14 @@ int32_t LINNEEncoder_CalculateWorkSize(const struct LINNEEncoderConfig *config)
     work_size += tmp_work_size;
 
     /* LPCネットのサイズ */
-    if ((tmp_work_size = LPCNet_CalculateWorkSize(
+    if ((tmp_work_size = LINNENetwork_CalculateWorkSize(
                     config->max_num_samples_per_block, config->max_num_layers, config->max_num_parameters_per_layer)) < 0) {
         return -1;
     }
     work_size += tmp_work_size;
 
     /* トレーナーのサイズ */
-    if ((tmp_work_size = LPCNetTrainer_CalculateWorkSize(
+    if ((tmp_work_size = LINNENetworkTrainer_CalculateWorkSize(
                     config->max_num_layers, config->max_num_parameters_per_layer)) < 0) {
         return -1;
     }
@@ -303,9 +303,9 @@ struct LINNEEncoder *LINNEEncoder_Create(const struct LINNEEncoderConfig *config
 
     /* LPCネットワークと領域確保 */
     {
-        const int32_t lpcnet_size = LPCNet_CalculateWorkSize(
+        const int32_t lpcnet_size = LINNENetwork_CalculateWorkSize(
                 config->max_num_samples_per_block, config->max_num_layers, config->max_num_parameters_per_layer);
-        if ((encoder->lpcnet = LPCNet_Create(
+        if ((encoder->lpcnet = LINNENetwork_Create(
                 config->max_num_samples_per_block, config->max_num_layers,
                 config->max_num_parameters_per_layer, work_ptr, lpcnet_size)) == NULL) {
             return NULL;
@@ -315,9 +315,9 @@ struct LINNEEncoder *LINNEEncoder_Create(const struct LINNEEncoderConfig *config
 
     /* トレーナーの領域確保 */
     {
-        const int32_t trainer_size = LPCNetTrainer_CalculateWorkSize(
+        const int32_t trainer_size = LINNENetworkTrainer_CalculateWorkSize(
                 config->max_num_layers, config->max_num_parameters_per_layer);
-        if ((encoder->trainer = LPCNetTrainer_Create(
+        if ((encoder->trainer = LINNENetworkTrainer_Create(
                 config->max_num_layers, config->max_num_parameters_per_layer, work_ptr, trainer_size)) == NULL) {
             return NULL;
         }
@@ -412,7 +412,7 @@ LINNEApiResult LINNEEncoder_SetEncodeParameter(
     encoder->parameter_preset = &g_linne_parameter_preset[parameter->preset];
 
     /* LPCネットのパラメータ設定 */
-    LPCNet_SetLayerStructure(encoder->lpcnet,
+    LINNENetwork_SetLayerStructure(encoder->lpcnet,
             parameter->num_samples_per_block,
             encoder->parameter_preset->num_layers, encoder->parameter_preset->num_params_list);
 
@@ -444,7 +444,7 @@ static LINNEBlockDataType LINNEEncoder_DecideBlockDataType(
             encoder->buffer_double[smpl] = input[ch][smpl] * pow(2.0f, -(int32_t)(header->bits_per_sample - 1));
         }
         /* 推定符号長計算 */
-        mean_length += LPCNet_EstimateCodeLength(encoder->lpcnet,
+        mean_length += LINNENetwork_EstimateCodeLength(encoder->lpcnet,
                 encoder->buffer_double, num_samples, header->bits_per_sample);
     }
     mean_length /= header->num_channels;
@@ -576,7 +576,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
         }
     }
 
-    /* チャンネル毎にLPCNetのパラメータ計算 */
+    /* チャンネル毎にLINNENetworkのパラメータ計算 */
     for (ch = 0; ch < header->num_channels; ch++) {
         uint32_t smpl;
         /* ユニット数で割り切れるように、分析サンプル数はユニット分割数の倍数に切り上げ */
@@ -588,11 +588,11 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
         for (smpl = 0; smpl < num_analyze_samples; smpl++) {
             encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0f, -(int32_t)(header->bits_per_sample - 1));
         }
-        LPCNet_SetUnitsAndParametersByLevinsonDurbin(encoder->lpcnet, encoder->buffer_double, num_analyze_samples);
+        LINNENetwork_SetUnitsAndParametersByLevinsonDurbin(encoder->lpcnet, encoder->buffer_double, num_analyze_samples);
         /* TODO: この定数はマクロ化するかプリセットに含める */
-        LPCNetTrainer_Train(encoder->trainer, encoder->lpcnet, encoder->buffer_double, num_analyze_samples, 2000, 0.1f, 1.0e-7);
-        LPCNet_GetLayerNumUnits(encoder->lpcnet, encoder->num_units[ch], encoder->max_num_layers);
-        LPCNet_GetParameters(encoder->lpcnet, encoder->params_double[ch], encoder->max_num_layers, encoder->max_num_parameters_per_layer);
+        // LINNENetworkTrainer_Train(encoder->trainer, encoder->lpcnet, encoder->buffer_double, num_analyze_samples, 2000, 0.1f, 1.0e-7);
+        LINNENetwork_GetLayerNumUnits(encoder->lpcnet, encoder->num_units[ch], encoder->max_num_layers);
+        LINNENetwork_GetParameters(encoder->lpcnet, encoder->params_double[ch], encoder->max_num_layers, encoder->max_num_parameters_per_layer);
         for (l = 0; l < encoder->parameter_preset->num_layers; l++) {
             LPC_QuantizeCoefficients(encoder->params_double[ch][l],
                     encoder->parameter_preset->num_params_list[l], LINNE_LPC_COEFFICIENT_BITWIDTH,

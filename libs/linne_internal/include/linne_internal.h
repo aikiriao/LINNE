@@ -14,8 +14,6 @@
 #define LINNE_PREEMPHASIS_COEF_SHIFT 5
 /* プリエンファシスフィルタの適用回数 */
 #define LINNE_NUM_PREEMPHASIS_FILTERS 2
-/* ブロック（フレーム）あたりサンプル数 */
-#define LINNE_BLOCK_NUM_SAMPLES 4096
 /* LPC係数のビット幅 */
 #define LINNE_LPC_COEFFICIENT_BITWIDTH 8
 /* log2(ユニット数)のビット幅 */
@@ -24,6 +22,12 @@
 #define LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH 4
 /* 圧縮をやめて生データを出力するときの閾値（サンプルあたりビット数に占める比率） */
 #define LINNE_ESTIMATED_CODELENGTH_THRESHOLD 0.95f
+/* ユニット数決定時の補助関数法の繰り返し回数（0は初期値のまま） */
+#define LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT 0
+/* パラメータ設定時の補助関数法の繰り返し回数（0は初期値のまま） */
+#define LINNE_NUM_AF_METHOD_ITERATION 2
+/* レイヤーあたり最大パラメータ数 */
+#define LINNE_NETWORK_MAX_PARAMS_PER_LAYER 128
 
 /* アサートマクロ */
 #ifdef NDEBUG

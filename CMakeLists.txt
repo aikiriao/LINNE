@@ -9,8 +9,8 @@ add_library(${CODEC_LIB_NAME}
     $<TARGET_OBJECTS:linne_decoder>
     $<TARGET_OBJECTS:linne_coder>
     $<TARGET_OBJECTS:linne_internal>
+    $<TARGET_OBJECTS:linne_network>
     $<TARGET_OBJECTS:bit_stream>
-    $<TARGET_OBJECTS:lpcnet>
     $<TARGET_OBJECTS:lpc>
     )
 

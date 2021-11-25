@@ -6,7 +6,7 @@ set(PROJECT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 project(LPCNet C)
 
 # ライブラリ名
-set(LIB_NAME lpcnet)
+set(LIB_NAME linne_network)
 
 # 静的ライブラリ指定
 add_library(${LIB_NAME} STATIC)
@@ -19,6 +19,7 @@ target_include_directories(${LIB_NAME}
     PRIVATE
     ${PROJECT_ROOT_PATH}/include
     ${PROJECT_ROOT_PATH}/libs/lpc/include
+    ${PROJECT_ROOT_PATH}/libs/linne_internal/include
     PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     )

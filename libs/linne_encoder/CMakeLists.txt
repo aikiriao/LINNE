@@ -21,7 +21,7 @@ target_include_directories(${LIB_NAME}
     ${PROJECT_ROOT_PATH}/libs/byte_array/include
     ${PROJECT_ROOT_PATH}/libs/bit_stream/include
     ${PROJECT_ROOT_PATH}/libs/lpc/include
-    ${PROJECT_ROOT_PATH}/libs/lpcnet/include
+    ${PROJECT_ROOT_PATH}/libs/linne_network/include
     ${PROJECT_ROOT_PATH}/libs/linne_internal/include
     ${PROJECT_ROOT_PATH}/libs/linne_coder/include
     PUBLIC
