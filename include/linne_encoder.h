@@ -46,6 +46,12 @@ void LINNEEncoder_Destroy(struct LINNEEncoder *encoder);
 LINNEApiResult LINNEEncoder_SetEncodeParameter(
     struct LINNEEncoder *encoder, const struct LINNEEncodeParameter *parameter);
 
+/* 単一データブロックエンコード */
+LINNEApiResult LINNEEncoder_EncodeBlock(
+        struct LINNEEncoder *encoder,
+        const int32_t *const *input, uint32_t num_samples,
+        uint8_t *data, uint32_t data_size, uint32_t *output_size);
+
 /* ヘッダ含めファイル全体をエンコード */
 LINNEApiResult LINNEEncoder_EncodeWhole(
     struct LINNEEncoder *encoder,

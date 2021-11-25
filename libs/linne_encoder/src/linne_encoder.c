@@ -40,12 +40,6 @@ struct LINNEEncoder {
 static LINNEError LINNEEncoder_ConvertParameterToHeader(
         const struct LINNEEncodeParameter *parameter, uint32_t num_samples,
         struct LINNEHeader *header);
-/* 単一データブロックエンコード */
-/* 補足）実装の簡略化のため、ストリーミングエンコードには対応しない。そのため非公開。 */
-static LINNEApiResult LINNEEncoder_EncodeBlock(
-        struct LINNEEncoder *encoder,
-        const int32_t *const *input, uint32_t num_samples,
-        uint8_t *data, uint32_t data_size, uint32_t *output_size);
 /* ブロックデータタイプの判定 */
 static LINNEBlockDataType LINNEEncoder_DecideBlockDataType(
         struct LINNEEncoder *encoder, const int32_t *const *input, uint32_t num_samples);
@@ -680,7 +674,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
 }
 
 /* 単一データブロックエンコード */
-static LINNEApiResult LINNEEncoder_EncodeBlock(
+LINNEApiResult LINNEEncoder_EncodeBlock(
         struct LINNEEncoder *encoder,
         const int32_t *const *input, uint32_t num_samples,
         uint8_t *data, uint32_t data_size, uint32_t *output_size)
