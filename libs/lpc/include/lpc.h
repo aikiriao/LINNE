@@ -39,6 +39,11 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
     uint32_t max_num_iteration);
 
+/* 共分散によるBurg法によりLPC係数を求める（倍精度） */
+LPCApiResult LPCCalculator_CalculateLPCCoefficientsCovBurg(
+    struct LPCCalculator *lpcc,
+    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order);
+
 /* 入力データからサンプルあたりの推定符号長を求める */
 LPCApiResult LPCCalculator_EstimateCodeLength(
         struct LPCCalculator *lpcc,
