@@ -570,7 +570,8 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
     /* プリエンファシス */
     for (ch = 0; ch < header->num_channels; ch++) {
         for (l = 0; l < LINNE_NUM_PREEMPHASIS_FILTERS; l++) {
-            encoder->pre_emphasis_prev[ch][l] = encoder->pre_emphasis[ch][l].prev; /* TODO: このためにEncodeBlockを連続して呼ぶ必要あり...マルチスレッドエンコードに悪影響... */
+            /* 直前値には先頭の同一値が続くと考える */
+            encoder->pre_emphasis[ch][l].prev = encoder->pre_emphasis_prev[ch][l] = encoder->buffer_int[ch][0];
             LINNEPreemphasisFilter_CalculateCoefficient(&encoder->pre_emphasis[ch][l], encoder->buffer_int[ch], num_samples);
             LINNEPreemphasisFilter_Preemphasis(&encoder->pre_emphasis[ch][l], encoder->buffer_int[ch], num_samples);
         }
