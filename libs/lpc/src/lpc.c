@@ -139,7 +139,7 @@ struct LPCCalculator *LPCCalculator_Create(uint32_t max_order, void *work, int32
         uint32_t ord;
         lpcc->r_mat = (double **)work_ptr;
         work_ptr += sizeof(double *) * (max_order + 1);
-        for (ord = 0; ord < max_order; ord++) {
+        for (ord = 0; ord < max_order + 1; ord++) {
             lpcc->r_mat[ord] = (double *)work_ptr;
             work_ptr += sizeof(double) * (max_order + 1);
         }
