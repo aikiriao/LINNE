@@ -8,6 +8,9 @@
 #include <string.h>
 #include <sys/stat.h>
 
+/* a, bのうち小さい方を選択 */
+#define LINNECODEC_MIN(a, b) (((a) < (b)) ? (a) : (b))
+
 /* コマンドライン仕様 */
 static struct CommandLineParserSpecification command_line_spec[] = {
     { 'e', "encode", COMMAND_LINE_PARSER_FALSE,
@@ -105,11 +108,64 @@ static int do_encode(const char* in_filename, const char* out_filename, uint32_t
         }
     }
 
-    /* 一括エンコード */
-    if ((ret = LINNEEncoder_EncodeWhole(encoder,
-                    (const int32_t* const *)input, num_samples, buffer, buffer_size, &encoded_data_size)) != LINNE_APIRESULT_OK) {
-        fprintf(stderr, "Encoding error! %d \n", ret);
-        return 1;
+    /* エンコード実行 */
+    {
+        uint8_t *data_pos = buffer;
+        uint32_t write_offset, progress;
+        struct LINNEHeader header;
+
+        write_offset = 0;
+
+        /* ヘッダエンコード */
+        header.num_channels = (uint16_t)num_channels;
+        header.num_samples = num_samples;
+        header.sampling_rate = parameter.sampling_rate;
+        header.bits_per_sample = parameter.bits_per_sample;
+        header.num_samples_per_block = parameter.num_samples_per_block;
+        header.preset = parameter.preset;
+        header.ch_process_method = parameter.ch_process_method;
+        if ((ret = LINNEEncoder_EncodeHeader(&header, data_pos, buffer_size))
+                != LINNE_APIRESULT_OK) {
+            fprintf(stderr, "Failed to encode header! ret:%d \n", ret);
+            return 1;
+        }
+        data_pos += LINNE_HEADER_SIZE;
+        write_offset += LINNE_HEADER_SIZE;
+
+        /* ブロックを時系列順にエンコード */
+        progress = 0;
+        while (progress < num_samples) {
+            uint32_t ch, write_size;
+            const int32_t *input_ptr[LINNE_MAX_NUM_CHANNELS];
+            /* エンコードサンプル数の確定 */
+            const uint32_t num_encode_samples
+                = LINNECODEC_MIN(parameter.num_samples_per_block, num_samples - progress);
+
+            /* サンプル参照位置のセット */
+            for (ch = 0; ch < (uint32_t)num_channels; ch++) {
+                input_ptr[ch] = &input[ch][progress];
+            }
+
+            /* ブロックエンコード */
+            if ((ret = LINNEEncoder_EncodeBlock(encoder,
+                            input_ptr, num_encode_samples,
+                            data_pos, buffer_size - write_offset, &write_size)) != LINNE_APIRESULT_OK) {
+                fprintf(stderr, "Failed to encode! ret:%d \n", ret);
+                return 1;
+            }
+
+            /* 進捗更新 */
+            data_pos += write_size;
+            write_offset += write_size;
+            progress += num_encode_samples;
+            
+            /* 進捗表示 */
+            printf("progress... %5.2f%% \r", (progress * 100.0f) / num_samples);
+            fflush(stdout);
+        }
+
+        /* 書き出しサイズ取得 */
+        encoded_data_size = write_offset;
     }
 
     /* ファイル書き出し */
@@ -120,7 +176,7 @@ static int do_encode(const char* in_filename, const char* out_filename, uint32_t
     }
 
     /* 圧縮結果サマリの表示 */
-    printf("%d -> %d (%6.2f %%) \n",
+    printf("finished: %d -> %d (%6.2f %%) \n",
             (uint32_t)fstat.st_size, encoded_data_size, 100.f * (double)encoded_data_size / fstat.st_size);
 
     /* リソース破棄 */
