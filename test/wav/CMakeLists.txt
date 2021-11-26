@@ -37,9 +37,10 @@ set_property(
     )
 
 # ビルド後にテストリソースを持ってくる
+file(GLOB TEST_WAVE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/*.wav)
 add_custom_command(
     TARGET ${TEST_NAME}
     POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${TEST_NAME}>/tmp
-    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/a.wav $<TARGET_FILE_DIR:${TEST_NAME}>/tmp
+    COMMAND ${CMAKE_COMMAND} -E copy ${TEST_WAVE_FILES} $<TARGET_FILE_DIR:${TEST_NAME}>/tmp
     )

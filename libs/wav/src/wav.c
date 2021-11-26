@@ -12,6 +12,9 @@
 /* 補足）((1 << n_bits) - 1)は下位の数値だけ取り出すマスクになる */
 #define WAV_GetLowerBits(n_bits, val) ((val) & (uint32_t)((1 << (n_bits)) - 1))
 
+/* a,bの内の小さい値を取得 */
+#define WAV_Min(a, b) (((a) < (b)) ? (a) : (b))
+
 /* 内部エラー型 */
 typedef enum WAVErrorTag {
     WAV_ERROR_OK = 0,             /* OK */
@@ -94,12 +97,6 @@ static int32_t WAV_Convert24bitPCMto32bitPCM(int32_t in_24bitpcm);
 /* 32bitPCM形式を32bit形式に変換 */
 static int32_t WAV_Convert32bitPCMto32bitPCM(int32_t in_32bitpcm);
 
-/* 32bitPCM形式を8bit形式に変換（注意：返り値は32bit整数だが、8bit範囲でクリップされている） */
-static int32_t WAV_Convert32bitPCMto8bitPCM(int32_t in_32bitpcm);
-/* 32bitPCM形式を16bit形式に変換（注意：返り値は32bit整数だが、16bit範囲でクリップされている） */
-static int32_t WAV_Convert32bitPCMto8bitPCM(int32_t in_32bitpcm);
-/* 32bitPCM形式を24bit形式に変換（注意：返り値は32bit整数だが、24bit範囲でクリップされている） */
-static int32_t WAV_Convert32bitPCMto16bitPCM(int32_t in_32bitpcm);
 /* 32bitPCM形式を32bit形式に変換 */
 static int32_t WAV_Convert32bitPCMto32bitPCM(int32_t in_32bitpcm);
 
@@ -416,25 +413,6 @@ static int32_t WAV_Convert32bitPCMto32bitPCM(int32_t in_32bitpcm)
     return in_32bitpcm;
 }
 
-/* 32bitPCM形式を8bit形式に変換（注意：返り値は32bit整数だが、8bit範囲でクリップされている） */
-static int32_t WAV_Convert32bitPCMto8bitPCM(int32_t in_32bitpcm)
-{
-    /* 128のオフセットを加える */
-    return ((in_32bitpcm >> 24) + 128);
-}
-
-/* 32bitPCM形式を16bit形式に変換（注意：返り値は32bit整数だが、16bit範囲でクリップされている） */
-static int32_t WAV_Convert32bitPCMto16bitPCM(int32_t in_32bitpcm)
-{
-    return (in_32bitpcm >> 16);
-}
-
-/* 32bitPCM形式を24bit形式に変換（注意：返り値は32bit整数だが、24bit範囲でクリップされている） */
-static int32_t WAV_Convert32bitPCMto24bitPCM(int32_t in_32bitpcm)
-{
-    return (in_32bitpcm >> 8);
-}
-
 /* パーサの初期化 */
 static void WAVParser_Initialize(struct WAVParser* parser, FILE* fp)
 {
@@ -624,43 +602,164 @@ static WAVError WAVWriter_PutWAVHeader(
     return WAV_ERROR_OK;
 }
 
+/* リトルエンディアンで書き出し
+* 注意）dataはスワップされる可能性がある */
+static size_t WAVWrite_FWriteLittleEndian(
+        void *data, size_t size, size_t ndata, FILE *fp)
+{
+    int x = 1;
+    uint8_t *buffer;
+    uint32_t i;
+
+    /* リトルエンディアン環境ではそのままfwrite */
+    if ((size == 1) || (*((char *)&x) == 1)) {
+        return fwrite(data, size, ndata, fp);
+    }
+
+    /* ビッグエンディアン環境では並び替えてから書き込む */
+    buffer = (uint8_t *)data;
+
+    switch (size) {
+    case 2:
+        for (i = 0; i < ndata; i++) {           
+            uint8_t a = buffer[2 * i];
+            buffer[2 * i + 0] = buffer[2 * i + 1];
+            buffer[2 * i + 1] = a;
+        }
+        break;
+    case 3:
+        for (i = 0; i < ndata; i++) {           
+            uint8_t a = buffer[3 * i];
+            buffer[3 * i + 0] = buffer[3 * i + 2];
+            buffer[3 * i + 2] = a;
+        }
+        break;
+    case 4:
+        for (i = 0; i < ndata; i++) {           
+            uint8_t a = buffer[4 * i];
+            uint8_t b = buffer[4 * i + 1];
+            buffer[4 * i + 0] = buffer[4 * i + 3];
+            buffer[4 * i + 1] = buffer[4 * i + 2];
+            buffer[4 * i + 2] = b;
+            buffer[4 * i + 3] = a;
+        }
+        break;
+    default:
+        return 0;
+    }
+
+    return fwrite(data, size, ndata, fp);
+}
+
 /* ライタを使用してPCMデータ出力 */
 static WAVError WAVWriter_PutWAVPcmData(
         struct WAVWriter* writer, const struct WAVFile* wavfile)
 {
-    uint32_t  ch, sample, bytes_per_sample;
-    int32_t   (*convert_sint32_to_pcmdata_func)(int32_t);
+    uint32_t ch, smpl, progress;
 
-    /* ビット深度に合わせてPCMデータの変換関数を決定 */
+    /* バッファは空に */
+    WAVWriter_Flush(writer);
+
+    /* チャンネルインターリーブしながら書き出し */
     switch (wavfile->format.bits_per_sample) {
     case 8:
-        convert_sint32_to_pcmdata_func = WAV_Convert32bitPCMto8bitPCM;
+        {
+            uint8_t *buffer;
+            const uint32_t num_output_smpls_per_buffer = WAVBITBUFFER_BUFFER_SIZE / (sizeof(uint8_t) * wavfile->format.num_channels);
+            progress = 0;
+            while (progress < wavfile->format.num_samples) {
+                const uint32_t num_process_smpls = WAV_Min(num_output_smpls_per_buffer, wavfile->format.num_samples - progress);
+                const uint32_t num_output_smpls = num_process_smpls * wavfile->format.num_channels;
+                buffer = (uint8_t *)writer->buffer.bytes;
+                for (smpl = 0; smpl < num_process_smpls; smpl++) {
+                    for (ch = 0; ch < wavfile->format.num_channels; ch++) {
+                        (*buffer++) = (uint8_t)(((WAVFile_PCM(wavfile, progress + smpl, ch) >> 24) + 128) & 0xFF);
+                    }
+                }
+                if (WAVWrite_FWriteLittleEndian(writer->buffer.bytes,
+                            sizeof(uint8_t), num_output_smpls, writer->fp) < num_output_smpls) {
+                    return WAV_ERROR_IO;
+                }
+                progress += num_process_smpls;
+            }
+        }
         break;
     case 16:
-        convert_sint32_to_pcmdata_func = WAV_Convert32bitPCMto16bitPCM;
+        {
+            int16_t *buffer;
+            const uint32_t num_output_smpls_per_buffer = WAVBITBUFFER_BUFFER_SIZE / (sizeof(int16_t) * wavfile->format.num_channels);
+            progress = 0;
+            while (progress < wavfile->format.num_samples) {
+                const uint32_t num_process_smpls = WAV_Min(num_output_smpls_per_buffer, wavfile->format.num_samples - progress);
+                const uint32_t num_output_smpls = num_process_smpls * wavfile->format.num_channels;
+                buffer = (int16_t *)writer->buffer.bytes;
+                for (smpl = 0; smpl < num_process_smpls; smpl++) {
+                    for (ch = 0; ch < wavfile->format.num_channels; ch++) {
+                        (*buffer++) = (int16_t)((WAVFile_PCM(wavfile, progress + smpl, ch) >> 16) & 0xFFFF);
+                    }
+                }
+                if (WAVWrite_FWriteLittleEndian(writer->buffer.bytes,
+                            sizeof(int16_t), num_output_smpls, writer->fp) < num_output_smpls) {
+                    return WAV_ERROR_IO;
+                }
+                progress += num_process_smpls;
+            }
+        }
         break;
     case 24:
-        convert_sint32_to_pcmdata_func = WAV_Convert32bitPCMto24bitPCM;
+        {
+            uint8_t *buffer;
+            const size_t int24_size = 3 * sizeof(uint8_t);
+            const uint32_t num_output_smpls_per_buffer = WAVBITBUFFER_BUFFER_SIZE / (int24_size * wavfile->format.num_channels);
+            progress = 0;
+            while (progress < wavfile->format.num_samples) {
+                const uint32_t num_process_smpls = WAV_Min(num_output_smpls_per_buffer, wavfile->format.num_samples - progress);
+                const uint32_t num_output_smpls = num_process_smpls * wavfile->format.num_channels;
+                const size_t output_size = num_output_smpls * int24_size;
+                buffer = (uint8_t *)writer->buffer.bytes;
+                for (smpl = 0; smpl < num_process_smpls; smpl++) {
+                    for (ch = 0; ch < wavfile->format.num_channels; ch++) {
+                        int32_t pcm = WAVFile_PCM(wavfile, progress + smpl, ch);
+                        (*buffer++) = (uint8_t)((pcm >>  8) & 0xFF);
+                        (*buffer++) = (uint8_t)((pcm >> 16) & 0xFF);
+                        (*buffer++) = (uint8_t)((pcm >> 24) & 0xFF);
+                    }
+                }
+                if (WAVWrite_FWriteLittleEndian(writer->buffer.bytes,
+                            sizeof(uint8_t), output_size, writer->fp) < output_size) {
+                    return WAV_ERROR_IO;
+                }
+                progress += num_process_smpls;
+            }
+        }
         break;
     case 32:
-        convert_sint32_to_pcmdata_func = WAV_Convert32bitPCMto32bitPCM;
+        {
+            int32_t *buffer;
+            const uint32_t num_output_smpls_per_buffer = WAVBITBUFFER_BUFFER_SIZE / (sizeof(int32_t) * wavfile->format.num_channels);
+            progress = 0;
+            while (progress < wavfile->format.num_samples) {
+                const uint32_t num_process_smpls = WAV_Min(num_output_smpls_per_buffer, wavfile->format.num_samples - progress);
+                const uint32_t num_output_smpls = num_process_smpls * wavfile->format.num_channels;
+                buffer = (int32_t *)writer->buffer.bytes;
+                for (smpl = 0; smpl < num_process_smpls; smpl++) {
+                    for (ch = 0; ch < wavfile->format.num_channels; ch++) {
+                        (*buffer++) = WAVFile_PCM(wavfile, progress + smpl, ch);
+                    }
+                }
+                if (WAVWrite_FWriteLittleEndian(writer->buffer.bytes,
+                            sizeof(int32_t), num_output_smpls, writer->fp) < num_output_smpls) {
+                    return WAV_ERROR_IO;
+                }
+                progress += num_process_smpls;
+            }
+        }
         break;
     default:
-        /* fprintf(stderr, "Unsupported bits per sample format(=%d). \n", wavfile->format.bits_per_sample); */
+        /* fprintf(stderr, "Unsupported bits per smpl format(=%d). \n", wavfile->format.bits_per_smpl); */
         return WAV_ERROR_INVALID_FORMAT;
     }
 
-    /* チャンネルインターリーブしつつ出力 */
-    bytes_per_sample = wavfile->format.bits_per_sample / 8;
-    for (sample = 0; sample < wavfile->format.num_samples; sample++) {
-        for (ch = 0; ch < wavfile->format.num_channels; ch++) {
-            if (WAVWriter_PutLittleEndianBytes(writer,
-                        bytes_per_sample,
-                        (uint64_t)convert_sint32_to_pcmdata_func(WAVFile_PCM(wavfile, sample, ch))) != WAV_ERROR_OK) {
-                return WAV_ERROR_IO;
-            }
-        }
-    }
 
     return WAV_ERROR_OK;
 }

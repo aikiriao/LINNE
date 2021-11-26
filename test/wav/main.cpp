@@ -188,9 +188,18 @@ TEST(WAVTest, WriteTest)
         uint32_t ch, is_ok, i_test;
         const char* test_sourcefile_list[] = {
             "a.wav",
+            "8bit.wav",
+            "16bit.wav",
+            "24bit.wav",
+            "32bit.wav",
+            "8bit_2ch.wav",
+            "16bit_2ch.wav",
+            "24bit_2ch.wav",
+            "32bit_2ch.wav",
         };
         const char test_filename[] = "tmp.wav";
         struct WAVFile *src_wavfile, *test_wavfile;
+        WAVApiResult ret;
 
         for (i_test = 0;
                 i_test < sizeof(test_sourcefile_list) / sizeof(test_sourcefile_list[0]);
@@ -199,10 +208,12 @@ TEST(WAVTest, WriteTest)
             src_wavfile = WAV_CreateFromFile(test_sourcefile_list[i_test]);
 
             /* 読み込んだデータをそのままファイルへ書き出し */
-            WAV_WriteToFile(test_filename, src_wavfile);
+            ret = WAV_WriteToFile(test_filename, src_wavfile);
+            ASSERT_EQ(WAV_APIRESULT_OK, ret);
 
             /* 一度書き出したファイルを読み込んでみる */
             test_wavfile = WAV_CreateFromFile(test_filename);
+            ASSERT_TRUE(test_wavfile != NULL);
 
             /* 最初に読み込んだファイルと一致するか？ */
             /* フォーマットの一致確認 */
