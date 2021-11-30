@@ -14,7 +14,7 @@
 /* 固定パラメータ符号を使うか否かの閾値 */
 #define LINNECODER_LOW_THRESHOULD_PARAMETER 6
 /* 固定小数の小数部ビット数 */
-#define LINNECODER_NUM_FRACTION_PART_BITS 8
+#define LINNECODER_NUM_FRACTION_PART_BITS 4
 /* 固定小数の0.5 */
 #define LINNECODER_FIXED_FLOAT_0_5 (1UL << ((LINNECODER_NUM_FRACTION_PART_BITS) - 1))
 /* 符号なし整数を固定小数に変換 */
