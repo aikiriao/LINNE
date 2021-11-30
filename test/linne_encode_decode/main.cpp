@@ -6,8 +6,12 @@
 
 #include "linne_encoder.h"
 #include "linne_decoder.h"
+#include "linne_utility.h"
 
-#if 0
+#ifndef M_PI
+#define M_PI 3.14159265358979323846f
+#endif
+
 /* 様々な波形がエンコード -> デコードが元に戻るかを確認するテスト */
 
 /* 波形生成関数 */
@@ -63,7 +67,7 @@ static void LINNEEncodeDecodeTest_GenerateSinWave(
 
     for (ch = 0; ch < num_channels; ch++) {
         for (smpl = 0; smpl < num_samples; smpl++) {
-            data[ch][smpl] = sin(440.0f * 2 * LINNEUTILITY_PI * smpl / 44100.0f);
+            data[ch][smpl] = sin(440.0f * 2 * M_PI * smpl / 44100.0f);
         }
     }
 }
@@ -95,7 +99,7 @@ static void LINNEEncodeDecodeTest_GenerateChirp(
     for (ch = 0; ch < num_channels; ch++) {
         for (smpl = 0; smpl < num_samples; smpl++) {
             period = num_samples - smpl;
-            data[ch][smpl] = sin((2.0f * LINNEUTILITY_PI * smpl) / period);
+            data[ch][smpl] = sin((2.0f * M_PI * smpl) / period);
         }
     }
 }
@@ -160,7 +164,7 @@ static void LINNEEncodeDecodeTest_GenerateGaussNoise(
             x = (double)rand() / RAND_MAX;
             y = (double)rand() / RAND_MAX;
             /* 分散は0.1f */
-            data[ch][smpl] = 0.25f * sqrt(-2.0f * log(x)) * cos(2.0f * LINNEUTILITY_PI * y);
+            data[ch][smpl] = 0.25f * sqrt(-2.0f * log(x)) * cos(2.0f * M_PI * y);
             data[ch][smpl] = (data[ch][smpl] >= 1.0f) ?   1.0f : data[ch][smpl];
             data[ch][smpl] = (data[ch][smpl] <= -1.0f) ? -1.0f : data[ch][smpl];
         }
@@ -219,12 +223,15 @@ static int32_t LINNEEncodeDecodeTest_ExecuteTestCase(const struct EncodeDecodeTe
     data_size     = LINNE_HEADER_SIZE + (2 * num_channels * num_samples * test_case->encode_parameter.bits_per_sample) / 8;
 
     /* エンコード・デコードコンフィグ作成 */
-    encoder_config.max_num_channels           = num_channels;
-    encoder_config.max_num_samples_per_block  = test_case->encode_parameter.num_samples_per_block;
-    encoder_config.max_filter_order           = test_case->encode_parameter.filter_order;
-    decoder_config.max_num_channels           = num_channels;
-    decoder_config.max_filter_order           = test_case->encode_parameter.filter_order;
-    decoder_config.check_crc                  = 1;
+    /* FIXME: 仮値 */
+    encoder_config.max_num_channels             = num_channels;
+    encoder_config.max_num_samples_per_block    = test_case->encode_parameter.num_samples_per_block;
+    encoder_config.max_num_layers               = 3;
+    encoder_config.max_num_parameters_per_layer = 128;
+    decoder_config.max_num_channels             = num_channels;
+    decoder_config.max_num_layers               = 3;
+    decoder_config.max_num_parameters_per_layer = 128;
+    decoder_config.check_crc                    = 1;
 
     /* 一時領域の割り当て */
     input_double  = (double **)malloc(sizeof(double*) * num_channels);
@@ -316,236 +323,164 @@ TEST(LINNEEncodeDecodeTest, EncodeDecodeCheckTest)
     /* テストケース配列 */
     static const struct EncodeDecodeTestCase test_case[] = {
         /* 無音の部 */
-        { { 1,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 1, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        // { { 1, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 2,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 2, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        // { { 2, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 8,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 8, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        // { { 8, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 1,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 1, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        // { { 1, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 2,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 2, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        // { { 2, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 8,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 8, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        // { { 8, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 1,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 1, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        // { { 1, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 2,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 2, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        // { { 2, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 8,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        { { 8, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
-        // { { 8, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 1,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 1, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 1, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 2,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 2, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 2, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 8,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 8, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 8, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 1,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 1, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 1, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 2,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 2, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 2, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 8,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 8, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
+        { { 8, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSilence },
 
         /* サイン波の部 */
-        { { 1,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 1, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        // { { 1, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 2,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 2, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        // { { 2, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 8,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 8, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        // { { 8, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 1,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 1, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        // { { 1, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 2,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 2, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        // { { 2, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 8,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 8, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        // { { 8, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 1,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 1, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        // { { 1, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 2,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 2, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        // { { 2, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 8,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        { { 8, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
-        // { { 8, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 1,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 1, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 1, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 2,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 2, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 2, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 8,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 8, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 8, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 1,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 1, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 1, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 2,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 2, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 2, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 8,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 8, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+        { { 8, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
 
         /* 白色雑音の部 */
-        { { 1,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 1, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        // { { 1, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 2,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 2, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        // { { 2, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 8,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 8, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        // { { 8, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 1,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 1, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        // { { 1, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 2,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 2, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        // { { 2, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 8,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 8, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        // { { 8, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 1,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 1, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        // { { 1, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 2,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 2, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        // { { 2, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 8,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        { { 8, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
-        // { { 8, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 1,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 1, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 1, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 2,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 2, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 2, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 8,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 8, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 8, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 1,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 1, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 1, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 2,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 2, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 2, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 8,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 8, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
+        { { 8, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
 
         /* チャープ信号の部 */
-        { { 1,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 1, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        // { { 1, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 2,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 2, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        // { { 2, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 8,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 8, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        // { { 8, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 1,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 1, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        // { { 1, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 2,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 2, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        // { { 2, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 8,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 8, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        // { { 8, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 1,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 1, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        // { { 1, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 2,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 2, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        // { { 2, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 8,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        { { 8, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
-        // { { 8, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 1,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 1, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 1, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 2,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 2, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 2, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 8,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 8, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 8, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 1,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 1, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 1, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 2,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 2, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 2, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 8,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 8, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
+        { { 8, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateChirp },
 
         /* 正定数信号の部 */
-        { { 1,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 1, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        // { { 1, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 2,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 2, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        // { { 2, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 8,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 8, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        // { { 8, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 1,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 1, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        // { { 1, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 2,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 2, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        // { { 2, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 8,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 8, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        // { { 8, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 1,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 1, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        // { { 1, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 2,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 2, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        // { { 2, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 8,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        { { 8, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
-        // { { 8, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 1,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 1, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 1, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 2,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 2, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 2, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 8,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 8, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 8, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 1,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 1, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 1, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 2,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 2, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 2, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 8,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 8, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
+        { { 8, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GeneratePositiveConstant },
 
         /* 負定数信号の部 */
-        { { 1,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 1, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        // { { 1, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 2,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 2, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        // { { 2, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 8,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 8, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        // { { 8, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 1,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 1, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        // { { 1, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 2,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 2, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        // { { 2, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 8,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 8, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        // { { 8, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 1,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 1, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        // { { 1, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 2,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 2, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        // { { 2, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 8,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        { { 8, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
-        // { { 8, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 1,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 1, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 1, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 2,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 2, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 2, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 8,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 8, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 8, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 1,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 1, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 1, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 2,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 2, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 2, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 8,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 8, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
+        { { 8, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNegativeConstant },
 
         /* ナイキスト周期振動信号の部 */
-        { { 1,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 1, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        // { { 1, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 2,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 2, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        // { { 2, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 8,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 8, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        // { { 8, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 1,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 1, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        // { { 1, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 2,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 2, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        // { { 2, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 8,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 8, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        // { { 8, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 1,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 1, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        // { { 1, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 2,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 2, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        // { { 2, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 8,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        { { 8, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
-        // { { 8, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 1,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 1, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 1, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 2,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 2, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 2, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 8,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 8, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 8, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 1,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 1, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 1, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 2,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 2, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 2, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 8,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 8, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
+        { { 8, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateNyquistOsc },
 
         /* ガウス雑音信号の部 */
-        { { 1,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 1, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        // { { 1, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 2,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 2, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        // { { 2, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 8,  8, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 8, 16, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        // { { 8, 24, 8000, 1024,  4, 1,  4, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 1,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 1, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        // { { 1, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 2,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 2, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        // { { 2, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 8,  8, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 8, 16, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        // { { 8, 24, 8000, 1024,  8, 2,  8, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 1,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 1, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        // { { 1, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_NONE, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 2,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 2, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        // { { 2, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 8,  8, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        { { 8, 16, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
-        // { { 8, 24, 8000, 1024, LINNE_MAX_FILTER_ORDER, 1, LINNE_MAX_FILTER_ORDER, LINNE_CH_PROCESS_METHOD_MS, 2 }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 1,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 1, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 1, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 2,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 2, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 2, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 8,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 8, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 8, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 1,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 1, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 1, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 2,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 2, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 2, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 8,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 8, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
+        { { 8, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS }, 0, 8192, LINNEEncodeDecodeTest_GenerateGaussNoise },
     };
 
     /* テストケース数 */
@@ -562,7 +497,6 @@ TEST(LINNEEncodeDecodeTest, EncodeDecodeCheckTest)
         }
     }
 }
-#endif
 
 int main(int argc, char **argv)
 {
