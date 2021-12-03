@@ -664,10 +664,6 @@ LINNEApiResult LINNEDecoder_DecodeWhole(
     read_offset = LINNE_HEADER_SIZE;
     read_pos = data + LINNE_HEADER_SIZE;
     while ((progress < header->num_samples) && (read_offset < data_size)) {
-        /* 出力データサイズが足らない */
-        if (read_offset > data_size) {
-            return LINNE_APIRESULT_INSUFFICIENT_DATA;
-        }
         /* サンプル書き出し位置のセット */
         for (ch = 0; ch < header->num_channels; ch++) {
             buffer_ptr[ch] = &buffer[ch][progress];
