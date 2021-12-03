@@ -82,6 +82,10 @@ LINNEApiResult LINNEEncoder_EncodeHeader(
     if (header->num_samples_per_block == 0) {
         return LINNE_APIRESULT_INVALID_FORMAT;
     }
+    /* パラメータプリセット */
+    if (header->preset >= LINNE_NUM_PARAMETER_PRESETS) {
+        return LINNE_APIRESULT_INVALID_FORMAT;
+    }
     /* マルチチャンネル処理法 */
     if (header->ch_process_method >= LINNE_CH_PROCESS_METHOD_INVALID) {
         return LINNE_APIRESULT_INVALID_FORMAT;
@@ -160,6 +164,18 @@ static LINNEError LINNEEncoder_ConvertParameterToHeader(
         return LINNE_ERROR_INVALID_FORMAT;
     }
 
+    /* プリセットのパラメータ数がブロックサイズを超えていないかチェック */
+    {
+        uint32_t l;
+        const struct LINNEParameterPreset *preset = &g_linne_parameter_preset[parameter->preset];
+        for (l = 0; l < preset->num_layers; l++) {
+            /* 1サンプル遅れの畳込みを行うため、サンプル数はパラメータ数よりも大きいことを要求 */
+            if (parameter->num_samples_per_block <= preset->num_params_list[l]) {
+                return LINNE_ERROR_INVALID_FORMAT;
+            }
+        }
+    }
+
     /* 総サンプル数 */
     tmp_header.num_samples = num_samples;
 
@@ -191,6 +207,11 @@ int32_t LINNEEncoder_CalculateWorkSize(const struct LINNEEncoderConfig *config)
             || (config->max_num_channels == 0)
             || (config->max_num_layers == 0)
             || (config->max_num_parameters_per_layer == 0)) {
+        return -1;
+    }
+
+    /* ブロックサイズはパラメータ数より大きくなるべき */
+    if (config->max_num_parameters_per_layer > config->max_num_samples_per_block) {
         return -1;
     }
 
@@ -269,6 +290,11 @@ struct LINNEEncoder *LINNEEncoder_Create(const struct LINNEEncoderConfig *config
         return NULL;
     }
 
+    /* ブロックサイズはパラメータ数より大きくなるべき */
+    if (config->max_num_parameters_per_layer > config->max_num_samples_per_block) {
+        return NULL;
+    }
+
     /* ワーク領域先頭ポインタ取得 */
     work_ptr = (uint8_t *)work;
 
@@ -295,7 +321,7 @@ struct LINNEEncoder *LINNEEncoder_Create(const struct LINNEEncoderConfig *config
         work_ptr += coder_size;
     }
 
-    /* LPCネットワークと領域確保 */
+    /* ネットワークと領域確保 */
     {
         const int32_t lpcnet_size = LINNENetwork_CalculateWorkSize(
                 config->max_num_samples_per_block, config->max_num_layers, config->max_num_parameters_per_layer);
@@ -527,7 +553,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
         const int32_t *const *input, uint32_t num_samples,
         uint8_t *data, uint32_t data_size, uint32_t *output_size)
 {
-    uint32_t ch, l;
+    uint32_t ch, l, num_analyze_samples;
     struct BitStream writer;
     const struct LINNEHeader *header;
 
@@ -571,14 +597,23 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
         }
     }
 
+    /* LPCで分析するサンプル数を決定 */
+    {
+        uint32_t max_num_parameters_per_layer = 0;
+        for (l = 0; l < encoder->parameter_preset->num_layers; l++) {
+            if (max_num_parameters_per_layer < encoder->parameter_preset->num_params_list[l]) {
+                max_num_parameters_per_layer = encoder->parameter_preset->num_params_list[l];
+            }
+        }
+        /* ユニット数で割り切れるように、分析サンプル数はユニット分割数の倍数に切り上げ */
+        num_analyze_samples = LINNEUTILITY_ROUNDUP(num_samples, (1 << LINNE_LOG2_NUM_UNITS_BITWIDTH));
+        /* クリップ */
+        num_analyze_samples = LINNEUTILITY_INNER_VALUE(num_analyze_samples, max_num_parameters_per_layer, header->num_samples_per_block);
+    }
+
     /* チャンネル毎にLINNENetworkのパラメータ計算 */
     for (ch = 0; ch < header->num_channels; ch++) {
         uint32_t smpl;
-        /* ユニット数で割り切れるように、分析サンプル数はユニット分割数の倍数に切り上げ */
-        const uint32_t num_analyze_samples
-            = LINNEUTILITY_INNER_VALUE(
-                LINNEUTILITY_ROUNDUP(num_samples, (1 << LINNE_LOG2_NUM_UNITS_BITWIDTH)),
-                encoder->max_num_parameters_per_layer, encoder->max_num_samples_per_block);
         /* double精度の信号に変換（[-1,1]の範囲に正規化） */
         for (smpl = 0; smpl < num_analyze_samples; smpl++) {
             encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0f, -(int32_t)(header->bits_per_sample - 1));

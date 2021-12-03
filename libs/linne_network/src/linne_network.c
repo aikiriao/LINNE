@@ -79,6 +79,11 @@ static int32_t LINNENetworkLayer_CalculateWorkSize(uint32_t num_samples, uint32_
 {
     int32_t work_size;
 
+    /* 1サンプル遅れの畳込みを行うため、サンプル数はパラメータ数よりも大きいことを要求 */
+    if (num_samples <= num_params) {
+        return -1;
+    }
+
     work_size = sizeof(struct LINNENetworkLayer) + LINNE_MEMORY_ALIGNMENT;
     work_size += 2 * (sizeof(double) * num_samples + LINNE_MEMORY_ALIGNMENT);
     work_size += 2 * (sizeof(double) * num_params + LINNE_MEMORY_ALIGNMENT);
@@ -97,6 +102,11 @@ static struct LINNENetworkLayer *LINNENetworkLayer_Create(
     /* 引数チェック */
     if ((work == NULL)
             || (work_size < LINNENetworkLayer_CalculateWorkSize(num_samples, num_params))) {
+        return NULL;
+    }
+
+    /* 1サンプル遅れの畳込みを行うため、サンプル数はパラメータ数よりも大きいことを要求 */
+    if (num_samples <= num_params) {
         return NULL;
     }
 
@@ -348,6 +358,11 @@ int32_t LINNENetwork_CalculateWorkSize(
         return -1;
     }
 
+    /* 1サンプル遅れの畳込みを行うため、サンプル数はパラメータ数よりも大きいことを要求 */
+    if (max_num_samples <= max_num_parameters_per_layer) {
+        return -1;
+    }
+
     work_size = sizeof(struct LINNENetwork) + LINNE_MEMORY_ALIGNMENT;
     work_size += sizeof(struct LINNENetworkLayer *) * max_num_layers;
     work_size += max_num_layers * (size_t)LINNENetworkLayer_CalculateWorkSize(max_num_samples, max_num_parameters_per_layer);
@@ -371,6 +386,11 @@ struct LINNENetwork *LINNENetwork_Create(
             || (max_num_parameters_per_layer == 0)
             || (work == NULL)
             || (work_size < LINNENetwork_CalculateWorkSize(max_num_samples, max_num_layers, max_num_parameters_per_layer))) {
+        return NULL;
+    }
+
+    /* 1サンプル遅れの畳込みを行うため、サンプル数はパラメータ数よりも大きいことを要求 */
+    if (max_num_samples <= max_num_parameters_per_layer) {
         return NULL;
     }
 
