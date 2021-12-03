@@ -23,8 +23,10 @@ set_target_properties(${TEST_NAME}
     MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>"
     )
 
+# 実行パスをtmp以下に
 add_test(
     NAME linne_internal
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:${TEST_NAME}>/tmp
     COMMAND $<TARGET_FILE:${TEST_NAME}>
     )
 
@@ -32,4 +34,13 @@ add_test(
 set_property(
     TEST linne_internal
     PROPERTY LABELS lib linne_internal
+    )
+
+# ビルド後にテストリソースを持ってくる
+add_custom_command(
+    TARGET ${TEST_NAME}
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:${TEST_NAME}>/tmp
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/PriChanIcon.png $<TARGET_FILE_DIR:${TEST_NAME}>/tmp
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/a.wav $<TARGET_FILE_DIR:${TEST_NAME}>/tmp
     )
