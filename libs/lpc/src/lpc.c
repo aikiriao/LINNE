@@ -432,23 +432,23 @@ static LPCError LPCAF_CalculateCoefMatrixAndVector(
         double residual = data[smpl];
         double inv_residual;
         for (i = 0; i < coef_order; i++) {
-            residual -= a_vec[i] * data[smpl - i - 1];
+            residual += a_vec[i] * data[smpl - i - 1];
         }
         residual = fabs(residual);
         obj_value += residual;
         /* 小さすぎる残差は丸め込む（ゼERO割回避、正則化） */
         residual = (residual < LPCAF_RESIDUAL_EPSILON) ? LPCAF_RESIDUAL_EPSILON : residual;
         inv_residual = 1.0f / residual;
-        /* 係数行列に足し込み */
+        /* 係数行列に蓄積 */
         for (i = 0; i < coef_order; i++) {
-            r_vec[i] += data[smpl] * data[smpl - i - 1] * inv_residual;
+            r_vec[i] -= data[smpl] * data[smpl - i - 1] * inv_residual;
             for (j = i; j < coef_order; j++) {
                 r_mat[i][j] += data[smpl - i - 1] * data[smpl - j - 1] * inv_residual;
             }
         }
     }
 
-    /* 対称要素に拡張 */
+    /* 符号反転 / 対称要素に拡張 */
     for (i = 0; i < coef_order; i++) {
         for (j = i + 1; j < coef_order; j++) {
             r_mat[j][i] = r_mat[i][j];
@@ -492,8 +492,8 @@ static LPCError LPCAF_CalculateCoefMatrixAndVector(
         double forward = data[smpl], backward = data[smpl];
         double inv_forward, inv_backward;
         for (i = 0; i < coef_order; i++) {
-            forward -= a_vec[i] * data[smpl - i - 1];
-            backward -= a_vec[i] * data[smpl + i + 1];
+            forward += a_vec[i] * data[smpl - i - 1];
+            backward += a_vec[i] * data[smpl + i + 1];
         }
         forward = fabs(forward);
         backward = fabs(backward);
@@ -505,8 +505,8 @@ static LPCError LPCAF_CalculateCoefMatrixAndVector(
         inv_backward = 1.0f / backward;
         /* 係数行列に足し込み */
         for (i = 0; i < coef_order; i++) {
-            r_vec[i] += data[smpl] * data[smpl - i - 1] * inv_forward;
-            r_vec[i] += data[smpl] * data[smpl + i + 1] * inv_backward;
+            r_vec[i] -= data[smpl] * data[smpl - i - 1] * inv_forward;
+            r_vec[i] -= data[smpl] * data[smpl + i + 1] * inv_backward;
             for (j = i; j < coef_order; j++) {
                 r_mat[i][j] += data[smpl - i - 1] * data[smpl - j - 1] * inv_forward;
                 r_mat[i][j] += data[smpl + i + 1] * data[smpl + j + 1] * inv_backward;
@@ -541,9 +541,6 @@ static LPCError LPC_CalculateCoefAF(
 
     /* 係数をLebinson-Durbin法で初期化 */
     (void)LPCCalculator_CalculateLPCCoefficients(lpcc, data, num_samples, a_vec, coef_order);
-    for (i = 0; i < coef_order; i++) {
-        a_vec[i] *= -1.0f;
-    }
 
     prev_obj_value = FLT_MAX;
     for (itr = 0; itr < max_num_iteration; itr++) {
@@ -571,9 +568,7 @@ static LPCError LPC_CalculateCoefAF(
     }
 
     /* 解を設定 */
-    for (i = 0; i < coef_order; i++) {
-        lpcc->lpc_coef[i] = -a_vec[i];
-    }
+    memmove(lpcc->lpc_coef, a_vec, sizeof(double) * coef_order);
 
     return LPC_ERROR_OK;
 }
