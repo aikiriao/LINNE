@@ -39,8 +39,8 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
     uint32_t max_num_iteration);
 
-/* 共分散によるBurg法によりLPC係数を求める（倍精度） */
-LPCApiResult LPCCalculator_CalculateLPCCoefficientsCovBurg(
+/* Burg法によりLPC係数を求める（倍精度） */
+LPCApiResult LPCCalculator_CalculateLPCCoefficientsBurg(
     struct LPCCalculator *lpcc,
     const double *data, uint32_t num_samples, double *coef, uint32_t coef_order);
 

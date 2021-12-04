@@ -600,10 +600,11 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     return LPC_APIRESULT_OK;
 }
 
-/* 共分散によるBurg法による係数計算 */
-static LPCError LPC_CalculateCoefCovBurg(
+/* Burg法による係数計算 */
+static LPCError LPC_CalculateCoefBurg(
         struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order)
 {
+#if 1
     uint32_t i, j, k;
     double *a_vec = lpcc->a_vec;
     double **cov = lpcc->r_mat;
@@ -659,12 +660,68 @@ static LPCError LPC_CalculateCoefCovBurg(
 
     /* 解を設定 */
     memmove(lpcc->lpc_coef, &lpcc->a_vec[1], sizeof(double) * coef_order);
+#else
+    uint32_t i, k;
+    double *a_vec = lpcc->a_vec;
+    double *f_vec, *b_vec;
+    double Dk, mu;
+    double tmp1, tmp2;
 
+    /* ベクトル領域割り当て */
+    f_vec = malloc(sizeof(double) * num_samples);
+    b_vec = malloc(sizeof(double) * num_samples);
+
+    /* 各ベクトル初期化 */
+    for (k = 0; k < coef_order + 1; k++) {
+        a_vec[k] = 0.0f;
+    }
+    a_vec[0] = 1.0f;
+    memcpy(f_vec, data, sizeof(double) * num_samples);
+    memcpy(b_vec, data, sizeof(double) * num_samples);
+
+    /* Dkの初期化 */
+    Dk = 0.0f;
+    for (i = 0; i < num_samples; i++) {
+        Dk += 2.0f * f_vec[i] * f_vec[i];
+    }
+    Dk -= f_vec[0] * f_vec[0] + f_vec[num_samples - 1] * f_vec[num_samples - 1];
+
+    /* Burg 再帰アルゴリズム */
+    for (k = 0; k < coef_order; k++) {
+        /* 反射（PARCOR）係数の計算 */
+        mu = 0.0f;
+        for (i = 0; i < num_samples - k - 1; i++) {
+            mu += f_vec[i + k + 1] * b_vec[i];
+        }
+        mu *= -2.0f / Dk;
+        assert(fabs(mu) < 1.0f);
+        /* a_vecの更新 */
+        for (i = 0; i <= (k + 1) / 2; i++) {
+            tmp1 = a_vec[i]; tmp2 = a_vec[k + 1 - i];
+            a_vec[i]         = tmp1 + mu * tmp2;
+            a_vec[k + 1 - i] = mu * tmp1 + tmp2;
+        }
+        /* f_vec, b_vecの更新 */
+        for (i = 0; i < num_samples - k - 1; i++) {
+            tmp1 = f_vec[i + k + 1]; tmp2 = b_vec[i];
+            f_vec[i + k + 1] = tmp1 + mu * tmp2;
+            b_vec[i]         = mu * tmp1 + tmp2;
+        }
+        /* Dkの更新 */
+        Dk = (1.0f - mu * mu) * Dk - f_vec[k + 1] * f_vec[k + 1] - b_vec[num_samples - k - 2] * b_vec[num_samples - k - 2];
+    }
+
+    /* 係数コピー */
+    memcpy(lpcc->lpc_coef, &a_vec[1], sizeof(double) * coef_order);
+
+    free(b_vec);
+    free(f_vec);
+#endif
     return LPC_ERROR_OK;
 }
 
-/* 共分散によるBurg法によりLPC係数を求める（倍精度） */
-LPCApiResult LPCCalculator_CalculateLPCCoefficientsCovBurg(
+/* Burg法によりLPC係数を求める（倍精度） */
+LPCApiResult LPCCalculator_CalculateLPCCoefficientsBurg(
     struct LPCCalculator *lpcc,
     const double *data, uint32_t num_samples, double *coef, uint32_t coef_order)
 {
@@ -679,7 +736,7 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsCovBurg(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoefCovBurg(lpcc, data, num_samples, coef_order) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoefBurg(lpcc, data, num_samples, coef_order) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 
