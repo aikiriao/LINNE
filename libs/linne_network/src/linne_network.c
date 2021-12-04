@@ -285,10 +285,10 @@ static void LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
         double mean_loss = 0.0f;
         LINNE_ASSERT(LINNE_NETWORK_MAX_PARAMS_PER_LAYER >= nparams_per_unit);
 
-        /* ユニット数で分割できなくなったら探索を打ち切る */
+        /* ユニット数で分割できない場合はスキップ */
         if (((layer->num_params % nunits) != 0)
                 || ((num_samples % nunits) != 0)) {
-            break;
+            continue;
         }
 
         /* 各ユニット数における誤差を計算し、ベストなユニット数を探る */
