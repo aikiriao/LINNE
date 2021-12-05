@@ -7,6 +7,7 @@
 #include "lpc.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 /* 内部状態フラグ */
 #define LINNEDECODER_STATUS_FLAG_ALLOCED_BY_OWN  (1 << 0)  /* 領域を自己割当した */
@@ -40,6 +41,12 @@ static LINNEApiResult LINNEDecoder_DecodeRawData(
         uint32_t *decode_size);
 /* 圧縮データブロックデコード */
 static LINNEApiResult LINNEDecoder_DecodeCompressData(
+        struct LINNEDecoder *decoder,
+        const uint8_t *data, uint32_t data_size,
+        int32_t **buffer, uint32_t num_channels, uint32_t num_decode_samples,
+        uint32_t *decode_size);
+/* 無音データブロックデコード */
+static LINNEApiResult LINNEDecoder_DecodeSilentData(
         struct LINNEDecoder *decoder,
         const uint8_t *data, uint32_t data_size,
         int32_t **buffer, uint32_t num_channels, uint32_t num_decode_samples,
@@ -522,6 +529,41 @@ static LINNEApiResult LINNEDecoder_DecodeCompressData(
     return LINNE_APIRESULT_OK;
 }
 
+/* 無音データブロックデコード */
+static LINNEApiResult LINNEDecoder_DecodeSilentData(
+        struct LINNEDecoder *decoder,
+        const uint8_t *data, uint32_t data_size,
+        int32_t **buffer, uint32_t num_channels, uint32_t num_decode_samples,
+        uint32_t *decode_size)
+{
+    uint32_t ch;
+    const struct LINNEHeader *header;
+
+    LINNEUTILITY_UNUSED_ARGUMENT(data_size);
+
+    /* 内部関数なので不正な引数はアサートで落とす */
+    LINNE_ASSERT(decoder != NULL);
+    LINNE_ASSERT(data != NULL);
+    LINNE_ASSERT(buffer != NULL);
+    LINNE_ASSERT(buffer[0] != NULL);
+    LINNE_ASSERT(num_decode_samples > 0);
+    LINNE_ASSERT(decode_size != NULL);
+
+    /* ヘッダ取得 */
+    header = &(decoder->header);
+
+    /* チャンネル数不足もアサートで落とす */
+    LINNE_ASSERT(num_channels >= header->num_channels);
+
+    /* 全て無音で埋める */
+    for (ch = 0; ch < header->num_channels; ch++) {
+        memset(buffer[ch], 0, sizeof(int32_t) * num_decode_samples);
+    }
+
+    (*decode_size) = 0;
+    return LINNE_APIRESULT_OK;
+}
+
 /* 単一データブロックデコード */
 LINNEApiResult LINNEDecoder_DecodeBlock(
         struct LINNEDecoder *decoder,
@@ -604,6 +646,10 @@ LINNEApiResult LINNEDecoder_DecodeBlock(
         break;
     case LINNE_BLOCK_DATA_TYPE_COMPRESSDATA:
         ret = LINNEDecoder_DecodeCompressData(decoder,
+                read_ptr, data_size - block_header_size, buffer, header->num_channels, num_block_samples, &block_data_size);
+        break;
+    case LINNE_BLOCK_DATA_TYPE_SILENT:
+        ret = LINNEDecoder_DecodeSilentData(decoder,
                 read_ptr, data_size - block_header_size, buffer, header->num_channels, num_block_samples, &block_data_size);
         break;
     default:

@@ -479,8 +479,17 @@ static LINNEBlockDataType LINNEEncoder_DecideBlockDataType(
         return LINNE_BLOCK_DATA_TYPE_RAWDATA;
     }
 
-    /* TODO: 無音判定 */
+    /* 無音判定 */
+    for (ch = 0; ch < header->num_channels; ch++) {
+        for (smpl = 0; smpl < num_samples; smpl++) {
+            if (input[ch][smpl] != 0) {
+                goto NOT_SILENCE;
+            }
+        }
+    }
+    return LINNE_BLOCK_DATA_TYPE_SILENT;
 
+NOT_SILENCE:
     /* それ以外は圧縮データ */
     return LINNE_BLOCK_DATA_TYPE_COMPRESSDATA;
 }
@@ -708,6 +717,25 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
     return LINNE_APIRESULT_OK;
 }
 
+/* 無音データブロックエンコード */
+static LINNEApiResult LINNEEncoder_EncodeSilentData(
+        struct LINNEEncoder *encoder,
+        const int32_t *const *input, uint32_t num_samples,
+        uint8_t *data, uint32_t data_size, uint32_t *output_size)
+{
+    /* 内部関数なので不正な引数はアサートで落とす */
+    LINNE_ASSERT(encoder != NULL);
+    LINNE_ASSERT(input != NULL);
+    LINNE_ASSERT(num_samples > 0);
+    LINNE_ASSERT(data != NULL);
+    LINNE_ASSERT(data_size > 0);
+    LINNE_ASSERT(output_size != NULL);
+
+    /* データサイズなし */
+    (*output_size) = 0;
+    return LINNE_APIRESULT_OK;
+}
+
 /* 単一データブロックエンコード */
 LINNEApiResult LINNEEncoder_EncodeBlock(
         struct LINNEEncoder *encoder,
@@ -765,6 +793,10 @@ LINNEApiResult LINNEEncoder_EncodeBlock(
         break;
     case LINNE_BLOCK_DATA_TYPE_COMPRESSDATA:
         ret = LINNEEncoder_EncodeCompressData(encoder, input, num_samples,
+                data_ptr, data_size - block_header_size, &block_data_size);
+        break;
+    case LINNE_BLOCK_DATA_TYPE_SILENT:
+        ret = LINNEEncoder_EncodeSilentData(encoder, input, num_samples,
                 data_ptr, data_size - block_header_size, &block_data_size);
         break;
     default:
