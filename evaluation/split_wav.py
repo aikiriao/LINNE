@@ -28,7 +28,7 @@ if __name__ == "__main__":
         splitsmpl = SPLIT_SECONDS * rate
         basefile = os.path.splitext(file)[0]
         # 指定時間で切り出しつつ出力
-        for div in range(nsmpl // splitsmpl + 1):
+        for div in range(nsmpl // splitsmpl):
             filename = basefile + '_%03d.wav' % div
             outpath = os.path.join(OUTPUT_DIR, filename)
             wv.write(outpath, rate, data[div * splitsmpl:(div + 1) * splitsmpl])
