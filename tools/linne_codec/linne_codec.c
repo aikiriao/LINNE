@@ -24,6 +24,9 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         NULL, COMMAND_LINE_PARSER_FALSE },
     { 'c', "crc-check", COMMAND_LINE_PARSER_TRUE,
         "Whether to check CRC16 at decoding(yes or no) default:yes",
+    { 'l', "enable-learning", COMMAND_LINE_PARSER_FALSE,
+        "Whether to learning at encoding default:no",
+        NULL, COMMAND_LINE_PARSER_FALSE },
         NULL, COMMAND_LINE_PARSER_FALSE },
     { 'h', "help", COMMAND_LINE_PARSER_FALSE,
         "Show command help message",
@@ -35,7 +38,7 @@ static struct CommandLineParserSpecification command_line_spec[] = {
 };
 
 /* エンコード 成功時は0、失敗時は0以外を返す */
-static int do_encode(const char* in_filename, const char* out_filename, uint32_t encode_preset_no)
+static int do_encode(const char* in_filename, const char* out_filename, uint32_t encode_preset_no, uint8_t enable_learning)
 {
     FILE *out_fp;
     struct WAVFile *in_wav;
@@ -75,6 +78,7 @@ static int do_encode(const char* in_filename, const char* out_filename, uint32_t
     parameter.num_samples_per_block = 5 * 2048;
     parameter.ch_process_method = LINNE_CH_PROCESS_METHOD_MS;
     parameter.preset = (uint8_t)encode_preset_no;
+    parameter.enable_learning = (uint8_t)enable_learning;
     /* 2ch未満の信号にはMS処理できないので無効に */
     if (num_channels < 2) {
         parameter.ch_process_method = LINNE_CH_PROCESS_METHOD_NONE;
@@ -347,6 +351,7 @@ int main(int argc, char** argv)
     } else if (CommandLineParser_GetOptionAcquired(command_line_spec, "encode") == COMMAND_LINE_PARSER_TRUE) {
         /* エンコード */
         uint32_t encode_preset_no = 0;
+        uint8_t enable_learning = 0;
         /* エンコードプリセット番号取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "mode") == COMMAND_LINE_PARSER_TRUE) {
             encode_preset_no = (uint32_t)strtol(CommandLineParser_GetArgumentString(command_line_spec, "mode"), NULL, 10);
@@ -355,8 +360,12 @@ int main(int argc, char** argv)
                 return 1;
             }
         }
+        /* 学習フラグを取得 */
+        if (CommandLineParser_GetOptionAcquired(command_line_spec, "enable-learning") == COMMAND_LINE_PARSER_TRUE) {
+            enable_learning = 1;
+        }
         /* 一括エンコード実行 */
-        if (do_encode(input_file, output_file, encode_preset_no) != 0) {
+        if (do_encode(input_file, output_file, encode_preset_no, enable_learning) != 0) {
             fprintf(stderr, "%s: failed to encode %s. \n", argv[0], input_file);
             return 1;
         }

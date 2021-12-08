@@ -20,6 +20,7 @@ struct LINNEEncoder {
     uint32_t max_num_layers; /* 最大レイヤー数 */
     uint32_t max_num_parameters_per_layer; /* 最大レイヤーあたりパラメータ数 */
     uint8_t set_parameter; /* パラメータセット済み？ */
+    uint8_t enable_learning; /* ネットワークの学習を行う？ */
     struct LINNEPreemphasisFilter **pre_emphasis; /* プリエンファシスフィルタ */
     int32_t **pre_emphasis_prev; /* プリエンファシスフィルタの直前のサンプル */
     struct LINNENetwork *lpcnet; /* LPCネットワーク */
@@ -436,6 +437,9 @@ LINNEApiResult LINNEEncoder_SetEncodeParameter(
             parameter->num_samples_per_block,
             encoder->parameter_preset->num_layers, encoder->parameter_preset->num_params_list);
 
+    /* 学習を行うかのフラグを立てる */
+    encoder->enable_learning = parameter->enable_learning;
+
     /* パラメータ設定済みフラグを立てる */
     encoder->set_parameter = 1;
 
@@ -628,8 +632,14 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
             encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0f, -(int32_t)(header->bits_per_sample - 1));
         }
         LINNENetwork_SetUnitsAndParametersByLevinsonDurbin(encoder->lpcnet, encoder->buffer_double, num_analyze_samples);
-        /* TODO: この定数はマクロ化するかプリセットに含める */
-        // LINNENetworkTrainer_Train(encoder->trainer, encoder->lpcnet, encoder->buffer_double, num_analyze_samples, 2000, 0.1f, 1.0e-7);
+        /* ネットワーク学習 */
+        if (encoder->enable_learning != 0) {
+            LINNENetworkTrainer_Train(encoder->trainer,
+                    encoder->lpcnet, encoder->buffer_double, num_analyze_samples,
+                    LINNE_TRAINING_PARAMETER_MAX_NUM_ITRATION,
+                    LINNE_TRAINING_PARAMETER_LEARNING_RATE, 
+                    LINNE_TRAINING_PARAMETER_LOSS_EPSILON);
+        }
         LINNENetwork_GetLayerNumUnits(encoder->lpcnet, encoder->num_units[ch], encoder->max_num_layers);
         LINNENetwork_GetParameters(encoder->lpcnet, encoder->params_double[ch], encoder->max_num_layers, encoder->max_num_parameters_per_layer);
         for (l = 0; l < encoder->parameter_preset->num_layers; l++) {

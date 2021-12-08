@@ -12,6 +12,7 @@ struct LINNEEncodeParameter {
     uint16_t num_samples_per_block; /* ブロックあたりサンプル数 */
     uint8_t preset; /* エンコードパラメータプリセット */
     LINNEChannelProcessMethod ch_process_method;  /* マルチチャンネル処理法 */
+    uint8_t enable_learning; /* ネットワークの学習を行うか？ */
 };
 
 /* エンコーダコンフィグ */

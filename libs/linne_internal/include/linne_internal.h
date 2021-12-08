@@ -28,6 +28,13 @@
 #define LINNE_NUM_AF_METHOD_ITERATION 2
 /* レイヤーあたり最大パラメータ数 */
 #define LINNE_NETWORK_MAX_PARAMS_PER_LAYER 128
+/* 学習パラメータ */
+/* 最大繰り返し回数 */
+#define LINNE_TRAINING_PARAMETER_MAX_NUM_ITRATION 2000
+/* 学習率 */
+#define LINNE_TRAINING_PARAMETER_LEARNING_RATE 0.1f
+/* ロスが変化しなくなったと判定する閾値 */
+#define LINNE_TRAINING_PARAMETER_LOSS_EPSILON 1.0e-7
 
 /* アサートマクロ */
 #ifdef NDEBUG
