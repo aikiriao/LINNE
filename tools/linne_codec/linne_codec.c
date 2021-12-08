@@ -22,11 +22,11 @@ static struct CommandLineParserSpecification command_line_spec[] = {
     { 'm', "mode", COMMAND_LINE_PARSER_TRUE,
         "Specify compress mode: 0(fast), ..., 3(high compression) default:0",
         NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'c', "crc-check", COMMAND_LINE_PARSER_TRUE,
-        "Whether to check CRC16 at decoding(yes or no) default:yes",
     { 'l', "enable-learning", COMMAND_LINE_PARSER_FALSE,
         "Whether to learning at encoding default:no",
         NULL, COMMAND_LINE_PARSER_FALSE },
+    { 'c', "no-crc-check", COMMAND_LINE_PARSER_FALSE,
+        "Whether to NOT check CRC16 at decoding default:no",
         NULL, COMMAND_LINE_PARSER_FALSE },
     { 'h', "help", COMMAND_LINE_PARSER_FALSE,
         "Show command help message",
@@ -337,11 +337,9 @@ int main(int argc, char** argv)
     if (CommandLineParser_GetOptionAcquired(command_line_spec, "decode") == COMMAND_LINE_PARSER_TRUE) {
         /* デコード */
         uint8_t crc_check = 1;
-        /* CRC有効フラグを取得 */
-        if (CommandLineParser_GetOptionAcquired(command_line_spec, "crc-check") == COMMAND_LINE_PARSER_TRUE) {
-            const char* crc_check_arg
-                = CommandLineParser_GetArgumentString(command_line_spec, "crc-check");
-            crc_check = (strcmp(crc_check_arg, "yes") == 0) ? 1 : 0;
+        /* CRC無効フラグを取得 */
+        if (CommandLineParser_GetOptionAcquired(command_line_spec, "no-crc-check") == COMMAND_LINE_PARSER_TRUE) {
+            crc_check = 0;
         }
         /* 一括デコード実行 */
         if (do_decode(input_file, output_file, crc_check) != 0) {
