@@ -20,7 +20,7 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         "Decode mode",
         NULL, COMMAND_LINE_PARSER_FALSE },
     { 'm', "mode", COMMAND_LINE_PARSER_TRUE,
-        "Specify compress mode: 0(fast), ..., 2(high compression) default:0",
+        "Specify compress mode: 0(fast), ..., 3(high compression) default:0",
         NULL, COMMAND_LINE_PARSER_FALSE },
     { 'c', "crc-check", COMMAND_LINE_PARSER_TRUE,
         "Whether to check CRC16 at decoding(yes or no) default:yes",
