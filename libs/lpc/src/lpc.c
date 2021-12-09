@@ -463,7 +463,7 @@ static LPCError LPCAF_CalculateCoefMatrixAndVector(
 #else
 /* 補助関数法（前向き後ろ向き残差）による係数行列計算 */
 static LPCError LPCAF_CalculateCoefMatrixAndVector(
-        const double *data, uint32_t num_samples, 
+        const double *data, uint32_t num_samples,
         const double *a_vec, double **r_mat, double *r_vec,
         uint32_t coef_order, double *pobj_value)
 {
@@ -551,7 +551,7 @@ static LPCError LPC_CalculateCoefAF(
         }
         /* コレスキー分解で r_mat @ avec = r_vec を解く */
         if ((err = LPC_CholeskyDecomposition(
-                        r_mat, (int32_t)coef_order, 
+                        r_mat, (int32_t)coef_order,
                         a_vec, r_vec, lpcc->u_vec)) == LPC_ERROR_SINGULAR_MATRIX) {
             /* 特異行列になるのは理論上入力が全部0のとき。係数を0クリアして終わる */
             for (i = 0; i < coef_order; i++) {

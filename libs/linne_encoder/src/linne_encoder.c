@@ -637,7 +637,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
             LINNENetworkTrainer_Train(encoder->trainer,
                     encoder->network, encoder->buffer_double, num_analyze_samples,
                     LINNE_TRAINING_PARAMETER_MAX_NUM_ITRATION,
-                    LINNE_TRAINING_PARAMETER_LEARNING_RATE, 
+                    LINNE_TRAINING_PARAMETER_LEARNING_RATE,
                     LINNE_TRAINING_PARAMETER_LOSS_EPSILON);
         }
         LINNENetwork_GetLayerNumUnits(encoder->network, encoder->num_units[ch], encoder->max_num_layers);

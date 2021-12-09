@@ -5,7 +5,7 @@ from pathlib import Path
 import scipy.io.wavfile as wv
 
 TEST_FILE_DIR_LIST = [
-  "./data/**/*.wav",
+    "./data/**/*.wav",
 ]
 
 OUTPUT_DIR = './output'

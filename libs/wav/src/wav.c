@@ -621,21 +621,21 @@ static size_t WAVWrite_FWriteLittleEndian(
 
     switch (size) {
     case 2:
-        for (i = 0; i < ndata; i++) {           
+        for (i = 0; i < ndata; i++) {
             uint8_t a = buffer[2 * i];
             buffer[2 * i + 0] = buffer[2 * i + 1];
             buffer[2 * i + 1] = a;
         }
         break;
     case 3:
-        for (i = 0; i < ndata; i++) {           
+        for (i = 0; i < ndata; i++) {
             uint8_t a = buffer[3 * i];
             buffer[3 * i + 0] = buffer[3 * i + 2];
             buffer[3 * i + 2] = a;
         }
         break;
     case 4:
-        for (i = 0; i < ndata; i++) {           
+        for (i = 0; i < ndata; i++) {
             uint8_t a = buffer[4 * i];
             uint8_t b = buffer[4 * i + 1];
             buffer[4 * i + 0] = buffer[4 * i + 3];

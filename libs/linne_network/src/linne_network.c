@@ -309,7 +309,7 @@ static void LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
                 } else {
                     for (k = 0; k < nparams_per_unit; k++) {
                         residual += pparams[k] * pinput[smpl - k - 1];
-                    } 
+                    }
                 }
                 mean_loss += fabs(residual);
             }

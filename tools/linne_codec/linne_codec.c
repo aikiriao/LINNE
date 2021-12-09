@@ -156,7 +156,7 @@ static int do_encode(const char* in_filename, const char* out_filename, uint32_t
             data_pos += write_size;
             write_offset += write_size;
             progress += num_encode_samples;
-            
+
             /* 進捗表示 */
             printf("progress... %5.2f%% \r", (progress * 100.0f) / num_samples);
             fflush(stdout);
