@@ -1,5 +1,3 @@
-**このリポジトリはテスト追加となんらかの論文投稿が完了次第publicに移動します**
-
 # LINNE
 
 LInear-predictive Neural Net Encoder
