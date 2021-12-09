@@ -11,7 +11,7 @@ extern "C" {
 /* 読み書きテスト */
 TEST(ByteArrayTest, ReadWriteTest)
 {
-#define TEST_SIZE (256 * 256)
+#define TEST_SIZE (16 * 1024)
 
     /* 1バイト読み/書き */
     {
