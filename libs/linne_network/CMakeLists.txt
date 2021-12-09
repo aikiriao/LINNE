@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.15)
 set(PROJECT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 
 # プロジェクト名
-project(LPCNet C)
+project(LINNENetwork C)
 
 # ライブラリ名
 set(LIB_NAME linne_network)
