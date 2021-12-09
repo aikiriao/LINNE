@@ -23,6 +23,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get install libpulse-dev
+
     - name: Preparation on Windows
       if: runner.os == 'Windows'
       uses: microsoft/setup-msbuild@v1.0.2
@@ -33,6 +34,7 @@ jobs:
         cmake --build build_debug --config Debug
         cmake -B build_release -DCMAKE_BUILD_TYPE=Release
         cmake --build build_release --config Release
+
     - name: Test
       run: |
         pushd build_debug
@@ -41,12 +43,18 @@ jobs:
         pushd build_release
         ctest -C Release
         popd
+
     - name: Build tools
       run: |
         pushd tools/linne_codec
         cmake -B build -DCMAKE_BUILD_TYPE=Release
         cmake --build build --config Release
         popd
+        pushd tools/linne_player
+        cmake -B build -DCMAKE_BUILD_TYPE=Release
+        cmake --build build --config Release
+        popd
+
     - name: Create artifacts on UNIX platform
       if: runner.os == 'Linux' || runner.os == 'macOS'
       run: |
@@ -59,7 +67,9 @@ jobs:
         cp build_release/liblinnecodec.a ${ARTIFACT_ROOT}/libs/
         cp build_release/liblinnedec.a ${ARTIFACT_ROOT}/libs/
         cp tools/linne_codec/build/linne ${ARTIFACT_ROOT}/tools/
+        cp tools/linne_player/build/linneplayer ${ARTIFACT_ROOT}/tools/
         tar -czf ${ARTIFACT_ROOT}.tar.gz ${ARTIFACT_ROOT} 
+
     - name: Create artifacts on Windows platform
       if: runner.os == 'Windows'
       shell: powershell
@@ -75,7 +85,9 @@ jobs:
         cp build_release/Release/linnecodec.lib ${ARTIFACT_ROOT}/libs/
         cp build_release/Release/linnedec.lib ${ARTIFACT_ROOT}/libs/
         cp tools/linne_codec/build/Release/linne.exe ${ARTIFACT_ROOT}/tools/
+        cp tools/linne_player/build/Release/linneplayer.exe ${ARTIFACT_ROOT}/tools/
         tar -czf "${ARTIFACT_ROOT}.tar.gz" ${ARTIFACT_ROOT} 
+
     - name: Upload artifacts
       uses: actions/upload-artifact@v2
       with:
