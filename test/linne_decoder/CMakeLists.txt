@@ -16,7 +16,7 @@ add_executable(${TEST_NAME}
 include_directories(${PROJECT_ROOT_PATH}/libs/linne_decoder/include)
 
 # リンクするライブラリ
-target_link_libraries(${TEST_NAME} gtest gtest_main byte_array bit_stream lpc linne_internal linne_coder linne_encoder linne_network)
+target_link_libraries(${TEST_NAME} gtest gtest_main byte_array bit_stream linne_encoder linne_network linne_coder linne_internal lpc)
 if (NOT MSVC)
 target_link_libraries(${TEST_NAME} pthread)
 endif()
