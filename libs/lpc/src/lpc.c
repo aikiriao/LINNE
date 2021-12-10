@@ -30,7 +30,6 @@ struct LPCCalculator {
     /* 内部的な計算結果は精度を担保するため全てdoubleで持つ */
     /* floatだとサンプル数を増やすと標本自己相関値の誤差に起因して出力の計算結果がnanになる */
     double *a_vec; /* 計算用ベクトル1 */
-    double *e_vec; /* 計算用ベクトル2 */
     double *u_vec; /* 計算用ベクトル3 */
     double *v_vec; /* 計算用ベクトル4 */
     double **r_mat; /* 補助関数法/Burg法で使用する行列（(max_order + 1)次） */
@@ -66,7 +65,7 @@ int32_t LPCCalculator_CalculateWorkSize(uint32_t max_order)
     }
 
     work_size = sizeof(struct LPCCalculator) + LPC_ALIGNMENT;
-    work_size += (int32_t)(sizeof(double) * (max_order + 2) * 4); /* a, e, u, v ベクトル分の領域 */
+    work_size += (int32_t)(sizeof(double) * (max_order + 2) * 3); /* a, u, v ベクトル分の領域 */
     work_size += (int32_t)(sizeof(double) * (max_order + 1)); /* 標本自己相関の領域 */
     work_size += (int32_t)(sizeof(double) * (max_order + 1) * 2); /* 係数ベクトルの領域 */
     /* 補助関数法で使用する行列領域 */
@@ -117,8 +116,6 @@ struct LPCCalculator *LPCCalculator_Create(uint32_t max_order, void *work, int32
     /* 計算用ベクトルの領域割当 */
     lpcc->a_vec = (double *)work_ptr;
     work_ptr += sizeof(double) * (max_order + 2); /* a_0, a_k+1を含めるとmax_order+2 */
-    lpcc->e_vec = (double *)work_ptr;
-    work_ptr += sizeof(double) * (max_order + 2); /* e_0, e_k+1を含めるとmax_order+2 */
     lpcc->u_vec = (double *)work_ptr;
     work_ptr += sizeof(double) * (max_order + 2);
     lpcc->v_vec = (double *)work_ptr;
@@ -217,11 +214,12 @@ static LPCError LPC_CalculateAutoCorrelation(
 /* Levinson-Durbin再帰計算 */
 static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, uint32_t coef_order)
 {
-    uint32_t delay, i;
+    uint32_t k, i;
     double gamma; /* 反射係数 */
+    double ek; /* 誤差分散 */
+
     /* オート変数にポインタをコピー */
     double *a_vec = lpcc->a_vec;
-    double *e_vec = lpcc->e_vec;
     double *u_vec = lpcc->u_vec;
     double *v_vec = lpcc->v_vec;
     double *coef = lpcc->lpc_coef;
@@ -248,39 +246,39 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, uint32_t
     }
 
     /* 最初のステップの係数をセット */
-    a_vec[0]        = 1.0f;
-    e_vec[0]        = auto_corr[0];
-    a_vec[1]        = - auto_corr[1] / auto_corr[0];
-    parcor_coef[0]  = 0.0f;
-    parcor_coef[1]  = auto_corr[1] / e_vec[0];
-    e_vec[1]        = auto_corr[0] + auto_corr[1] * a_vec[1];
-    u_vec[0]        = 1.0f; u_vec[1] = 0.0f;
-    v_vec[0]        = 0.0f; v_vec[1] = 1.0f;
+    a_vec[0] = 1.0f;
+    ek = auto_corr[0];
+    a_vec[1] = - auto_corr[1] / auto_corr[0];
+    parcor_coef[0] = 0.0f;
+    parcor_coef[1] = auto_corr[1] / ek;
+    ek += auto_corr[1] * a_vec[1];
+    u_vec[0] = 1.0f; u_vec[1] = 0.0f;
+    v_vec[0] = 0.0f; v_vec[1] = 1.0f;
 
     /* 再帰処理 */
-    for (delay = 1; delay < coef_order; delay++) {
+    for (k = 1; k < coef_order; k++) {
         gamma = 0.0f;
-        for (i = 0; i < delay + 1; i++) {
-            gamma += a_vec[i] * auto_corr[delay + 1 - i];
+        for (i = 0; i < k + 1; i++) {
+            gamma += a_vec[i] * auto_corr[k + 1 - i];
         }
-        gamma /= (-e_vec[delay]);
-        e_vec[delay + 1] = (1.0f - gamma * gamma) * e_vec[delay];
+        gamma /= -ek;
+        ek *= (1.0f - gamma * gamma);
         /* 誤差分散（パワー）は非負 */
-        assert(e_vec[delay] >= 0.0f);
+        assert(ek >= 0.0f);
 
         /* u_vec, v_vecの更新 */
-        for (i = 0; i < delay; i++) {
-            u_vec[i + 1] = v_vec[delay - i] = a_vec[i + 1];
+        for (i = 0; i < k; i++) {
+            u_vec[i + 1] = v_vec[k - i] = a_vec[i + 1];
         }
-        u_vec[0] = 1.0f; u_vec[delay+1] = 0.0f;
-        v_vec[0] = 0.0f; v_vec[delay+1] = 1.0f;
+        u_vec[0] = 1.0f; u_vec[k + 1] = 0.0f;
+        v_vec[0] = 0.0f; v_vec[k + 1] = 1.0f;
 
         /* 係数の更新 */
-        for (i = 0; i < delay + 2; i++) {
+        for (i = 0; i < k + 2; i++) {
             a_vec[i] = u_vec[i] + gamma * v_vec[i];
         }
         /* PARCOR係数は反射係数の符号反転 */
-        parcor_coef[delay + 1] = -gamma;
+        parcor_coef[k + 1] = -gamma;
         /* PARCOR係数の絶対値は1未満（収束条件） */
         assert(fabs(gamma) < 1.0f);
     }
@@ -534,7 +532,7 @@ static LPCError LPC_CalculateCoefAF(
 {
     uint32_t itr, i;
     double *a_vec = lpcc->a_vec;
-    double *r_vec = lpcc->e_vec;
+    double *r_vec = lpcc->u_vec;
     double **r_mat = lpcc->r_mat;
     double obj_value, prev_obj_value;
     LPCError err;
@@ -564,7 +562,7 @@ static LPCError LPC_CalculateCoefAF(
         /* コレスキー分解で r_mat @ avec = r_vec を解く */
         if ((err = LPC_CholeskyDecomposition(
                         r_mat, (int32_t)coef_order,
-                        a_vec, r_vec, lpcc->u_vec)) == LPC_ERROR_SINGULAR_MATRIX) {
+                        a_vec, r_vec, lpcc->v_vec)) == LPC_ERROR_SINGULAR_MATRIX) {
             /* 特異行列になるのは理論上入力が全部0のとき。係数を0クリアして終わる */
             for (i = 0; i < coef_order; i++) {
                 lpcc->lpc_coef[i] = 0.0f;
