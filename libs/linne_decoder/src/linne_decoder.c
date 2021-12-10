@@ -1,13 +1,14 @@
 #include "linne_decoder.h"
+
+#include <stdlib.h>
+#include <string.h>
+#include "linne_lpc_synthesize.h"
 #include "linne_internal.h"
 #include "linne_utility.h"
 #include "linne_coder.h"
 #include "byte_array.h"
 #include "bit_stream.h"
 #include "lpc.h"
-
-#include <stdlib.h>
-#include <string.h>
 
 /* 内部状態フラグ */
 #define LINNEDECODER_STATUS_FLAG_ALLOCED_BY_OWN  (1 << 0)  /* 領域を自己割当した */
@@ -506,8 +507,7 @@ static LINNEApiResult LINNEDecoder_DecodeCompressData(
                 int32_t *poutput = &buffer[ch][u * nsmpls_per_unit];
                 const int32_t *pcoef = &decoder->params_int[ch][l][u * nparams_per_unit];
                 /* 合成 */
-                LPCApiResult ret = LPC_Synthesize(poutput, nsmpls_per_unit, pcoef, nparams_per_unit, rshift);
-                LINNE_ASSERT(ret == LPC_APIRESULT_OK);
+                LINNELPC_Synthesize(poutput, nsmpls_per_unit, pcoef, nparams_per_unit, rshift);
             }
         }
         /* デエンファシス */

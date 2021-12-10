@@ -6,7 +6,11 @@ set(PROJECT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 set(TEST_NAME linne_encoder_test)
 
 # 実行形式ファイル
-add_executable(${TEST_NAME} main.cpp)
+add_executable(${TEST_NAME} 
+    linne_encoder_test.cpp
+    linne_lpc_predict_test.cpp
+    main.cpp
+    )
 
 # インクルードディレクトリ
 include_directories(${PROJECT_ROOT_PATH}/libs/linne_encoder/include)

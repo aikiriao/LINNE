@@ -325,6 +325,8 @@ static void LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
     LINNE_ASSERT(tmp_best_nunits != 0);
     layer->num_units = tmp_best_nunits;
 
+    /* パラメータの設定 */
+    /* 注意）パラメータの順序を反転している。行列演算と定義を合わせるため */
     {
         uint32_t i;
         const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
@@ -335,7 +337,8 @@ static void LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
             LPCApiResult ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
                     pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION);
             LINNE_ASSERT(ret == LPC_APIRESULT_OK);
-            /* 順行伝播を行列演算で扱う都合上、パラメータ順序をリバース */
+            /* 行列（畳み込み）演算でインデックスが増える方向にしたい都合上、
+            * パラメータ順序を変転 */
             for (i = 0; i < nparams_per_unit / 2; i++) {
                 double tmp = pparams[i];
                 pparams[i] = pparams[nparams_per_unit - i - 1];
@@ -598,22 +601,11 @@ void LINNENetwork_GetParameters(
     LINNE_ASSERT(buffer_num_layers >= (uint32_t)net->num_layers);
 
     for (l = 0; l < net->num_layers; l++) {
-        uint32_t u, i;
         const struct LINNENetworkLayer *layer = net->layers[l];
-        const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
         LINNE_ASSERT(params_buffer[l] != NULL);
         LINNE_ASSERT(buffer_num_params_per_layer >= layer->num_params);
-        /* 一旦バッファ領域にコピー */
+        /* バッファ領域にコピー */
         memcpy(params_buffer[l], layer->params, sizeof(double) * layer->num_params);
-        /* ユニット毎にパラメータ順序をリバース */
-        for (u = 0; u < layer->num_units; u++) {
-            double *pparams = &params_buffer[l][u * nparams_per_unit];
-            for (i = 0; i < nparams_per_unit / 2; i++) {
-                double tmp = pparams[i];
-                pparams[i] = pparams[nparams_per_unit - i - 1];
-                pparams[nparams_per_unit - i - 1] = tmp;
-            }
-        }
     }
 }
 

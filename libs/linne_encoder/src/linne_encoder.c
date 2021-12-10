@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+#include "linne_lpc_predict.h"
 #include "linne_internal.h"
 #include "linne_utility.h"
 #include "byte_array.h"
@@ -663,7 +664,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
                 int32_t *poutput = &encoder->residual[ch][i * nsmpls_per_unit];
                 const int32_t *pcoef = &encoder->params_int[ch][l][i * nparams_per_unit];
                 /* 予測 */
-                LPC_Predict(pinput, nsmpls_per_unit, pcoef, nparams_per_unit, poutput, encoder->rshifts[ch][l]);
+                LINNELPC_Predict(pinput, nsmpls_per_unit, pcoef, nparams_per_unit, poutput, encoder->rshifts[ch][l]);
             }
             /* 残差を次のレイヤーの入力へ */
             memcpy(encoder->buffer_int[ch], encoder->residual[ch], sizeof(int32_t) * num_samples);
