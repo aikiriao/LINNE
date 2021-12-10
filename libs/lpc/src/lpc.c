@@ -540,7 +540,19 @@ static LPCError LPC_CalculateCoefAF(
     LPCError err;
 
     /* 係数をLebinson-Durbin法で初期化 */
-    (void)LPCCalculator_CalculateLPCCoefficients(lpcc, data, num_samples, a_vec, coef_order);
+    if ((err = LPC_CalculateCoef(lpcc, data, num_samples, coef_order)) != LPC_ERROR_OK) {
+        return err;
+    }
+    memcpy(a_vec, &lpcc->lpc_coef[1], sizeof(double) * coef_order);
+
+    /* 0次自己相関（信号の二乗和）が小さい場合
+    * => 係数は全て0として無音出力システムを予測 */
+    if (fabs(lpcc->auto_corr[0]) < FLT_EPSILON) {
+        for (i = 0; i < coef_order + 1; i++) {
+            lpcc->lpc_coef[i] = 0.0f;
+        }
+        return LPC_ERROR_OK;
+    }
 
     prev_obj_value = FLT_MAX;
     for (itr = 0; itr < max_num_iteration; itr++) {
