@@ -6,7 +6,7 @@ set(PROJECT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 set(TEST_NAME linne_decoder_test)
 
 # 実行形式ファイル
-add_executable(${TEST_NAME} 
+add_executable(${TEST_NAME}
     linne_decoder_test.cpp
     linne_lpc_synthesize_test.cpp
     main.cpp
