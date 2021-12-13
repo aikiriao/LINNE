@@ -762,7 +762,7 @@ LPCApiResult LPCCalculator_EstimateCodeLength(
         const double *data, uint32_t num_samples, uint32_t bits_per_sample,
         uint32_t coef_order, double *length_per_sample_bits)
 {
-    uint32_t smpl, ord;
+    uint32_t ord;
     double log2_mean_res_power, log2_var_ratio;
 
     /* 定数値 */
@@ -780,10 +780,7 @@ LPCApiResult LPCCalculator_EstimateCodeLength(
     }
 
     /* log2(パワー平均)の計算 */
-    log2_mean_res_power = 0.0f;
-    for (smpl = 0; smpl < num_samples; smpl++) {
-        log2_mean_res_power += data[smpl] * data[smpl];
-    }
+    log2_mean_res_power = lpcc->auto_corr[0]; /* 0次標本自己相関はパワー */
     /* 整数PCMの振幅に変換（doubleの密度保障） */
     log2_mean_res_power *= pow(2, (double)(2 * (bits_per_sample - 1)));
     if (fabs(log2_mean_res_power) <= FLT_MIN) {
@@ -817,6 +814,39 @@ LPCApiResult LPCCalculator_EstimateCodeLength(
     return LPC_APIRESULT_OK;
 }
 
+/* MDL（最小記述長）を計算 */
+LPCApiResult LPCCalculator_CalculateMDL(
+        struct LPCCalculator *lpcc,
+        const double *data, uint32_t num_samples, uint32_t coef_order, double *mdl)
+{
+    uint32_t k;
+    double tmp;
+
+    /* 引数チェック */
+    if ((lpcc == NULL) || (data == NULL) || (mdl == NULL)) {
+        return LPC_APIRESULT_INVALID_ARGUMENT;
+    }
+
+    /* 係数計算 */
+    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order) != LPC_ERROR_OK) {
+        return LPC_APIRESULT_FAILED_TO_CALCULATION;
+    }
+
+    /* 第一項の計算 */
+    /* 1次の係数は0で確定だから飛ばす */
+    tmp = 0.0f;
+    for (k = 1; k <= coef_order; k++) {
+        tmp += log(1.0f - lpcc->parcor_coef[k] * lpcc->parcor_coef[k]);
+    }
+    tmp *= num_samples;
+
+    /* 第二項の計算 */
+    tmp += coef_order * log(num_samples);
+
+    (*mdl) = tmp;
+
+    return LPC_APIRESULT_OK;
+}
 
 /* LPC係数の整数量子化 */
 LPCApiResult LPC_QuantizeCoefficients(

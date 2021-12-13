@@ -50,6 +50,11 @@ LPCApiResult LPCCalculator_EstimateCodeLength(
         const double *data, uint32_t num_samples, uint32_t bits_per_sample,
         uint32_t coef_order, double *length_per_sample_bits);
 
+/* MDL（最小記述長）を計算 */
+LPCApiResult LPCCalculator_CalculateMDL(
+        struct LPCCalculator *lpcc,
+        const double *data, uint32_t num_samples, uint32_t coef_order, double *mdl);
+
 /* LPC係数の整数量子化 */
 LPCApiResult LPC_QuantizeCoefficients(
     const double *double_coef, uint32_t coef_order, uint32_t nbits_precision,
