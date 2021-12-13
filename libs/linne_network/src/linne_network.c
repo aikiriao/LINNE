@@ -547,6 +547,7 @@ void LINNENetwork_SetUnitsAndParametersByLevinsonDurbin(
         struct LINNENetwork *net, const double *input, uint32_t num_samples)
 {
     int32_t l;
+    const uint32_t max_num_units = 1UL << ((1UL << LINNE_LOG2_NUM_UNITS_BITWIDTH) - 1);
 
     LINNE_ASSERT(net != NULL);
     LINNE_ASSERT(input != NULL);
@@ -554,7 +555,6 @@ void LINNENetwork_SetUnitsAndParametersByLevinsonDurbin(
 
     memcpy(net->data_buffer, input, sizeof(double) * num_samples);
     for (l = 0; l < net->num_layers; l++) {
-        const uint32_t max_num_units = 1UL << ((1UL << LINNE_LOG2_NUM_UNITS_BITWIDTH) - 1);
         LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
                 net->layers[l], net->lpcc, net->data_buffer, num_samples,
                 LINNEUTILITY_MIN(max_num_units, net->layers[l]->num_params));
