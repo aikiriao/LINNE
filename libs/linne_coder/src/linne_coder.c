@@ -3,8 +3,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <assert.h>
 
+#include "linne_internal.h"
 #include "linne_utility.h"
 
 /* メモリアラインメント */
@@ -54,8 +54,8 @@ static void LINNEGolomb_PutCode(struct BitStream *stream, uint32_t m, uint32_t v
     uint32_t rest;
     uint32_t b, two_b;
 
-    assert(stream != NULL);
-    assert(m != 0);
+    LINNE_ASSERT(stream != NULL);
+    LINNE_ASSERT(m != 0);
 
     /* 商部分長と剰余部分の計算 */
     quot = val / m;
@@ -92,8 +92,8 @@ static uint32_t LINNEGolomb_GetCode(struct BitStream *stream, uint32_t m)
 {
     uint32_t quot, rest, b, two_b;
 
-    assert(stream != NULL);
-    assert(m != 0);
+    LINNE_ASSERT(stream != NULL);
+    LINNE_ASSERT(m != 0);
 
     /* 前半のunary符号部分を読み取り */
     BitReader_GetZeroRunLength(stream, &quot);
@@ -127,7 +127,7 @@ static void Gamma_PutCode(struct BitStream *stream, uint32_t val)
 {
     uint32_t ndigit;
 
-    assert(stream != NULL);
+    LINNE_ASSERT(stream != NULL);
 
     if (val == 0) {
         /* 符号化対象が0ならば1を出力して終了 */
@@ -149,7 +149,7 @@ static uint32_t Gamma_GetCode(struct BitStream *stream)
     uint32_t ndigit;
     uint32_t bitsbuf;
 
-    assert(stream != NULL);
+    LINNE_ASSERT(stream != NULL);
 
     /* 桁数を取得 */
     /* 1が出現するまで桁数を増加 */
@@ -170,14 +170,14 @@ static uint32_t Gamma_GetCode(struct BitStream *stream)
 /* 商部分（アルファ符号）を出力 */
 static void LINNERecursiveRice_PutQuotPart(struct BitStream *stream, uint32_t quot)
 {
-    assert(stream != NULL);
+    LINNE_ASSERT(stream != NULL);
 
     if (quot == 0) {
         BitWriter_PutBits(stream, 1, 1);
         return;
     }
 
-    assert(quot < 32);
+    LINNE_ASSERT(quot < 32);
     BitWriter_PutBits(stream, 0, quot);
     BitWriter_PutBits(stream, 1, 1);
 }
@@ -187,7 +187,7 @@ static uint32_t LINNERecursiveRice_GetQuotPart(struct BitStream *stream)
 {
     uint32_t quot;
 
-    assert(stream != NULL);
+    LINNE_ASSERT(stream != NULL);
 
     BitReader_GetZeroRunLength(stream, &quot);
 
@@ -197,7 +197,7 @@ static uint32_t LINNERecursiveRice_GetQuotPart(struct BitStream *stream)
 /* 剰余部分を出力 kは剰余部の桁数（logを取ったライス符号） */
 static void LINNERecursiveRice_PutRestPart(struct BitStream *stream, uint32_t val, uint32_t k)
 {
-    assert(stream != NULL);
+    LINNE_ASSERT(stream != NULL);
 
     /* k == 0の時はスキップ（剰余は0で確定だから） */
     if (k > 0) {
@@ -210,7 +210,7 @@ static uint32_t LINNERecursiveRice_GetRestPart(struct BitStream *stream, uint32_
 {
     uint32_t rest;
 
-    assert(stream != NULL);
+    LINNE_ASSERT(stream != NULL);
 
     /* ライス符号の剰余部分取得 */
     BitReader_GetBits(stream, &rest, k);
@@ -224,9 +224,9 @@ static void LINNERecursiveRice_PutCode(
 {
     uint32_t k, param, quot;
 
-    assert(stream != NULL);
-    assert(rice_parameters != NULL);
-    assert(LINNECODER_PARAMETER_GET(rice_parameters, 0) != 0);
+    LINNE_ASSERT(stream != NULL);
+    LINNE_ASSERT(rice_parameters != NULL);
+    LINNE_ASSERT(LINNECODER_PARAMETER_GET(rice_parameters, 0) != 0);
 
     k = RICE_CALCULATE_LOG2_RICE_PARAMETER(rice_parameters, 0);
     param = (1U << k);
@@ -263,9 +263,9 @@ static uint32_t LINNERecursiveRice_GetCode(struct BitStream *stream, RecursiveRi
 {
     uint32_t quot, val, k, param;
 
-    assert(stream != NULL);
-    assert(rice_parameters != NULL);
-    assert(LINNECODER_PARAMETER_GET(rice_parameters, 0) != 0);
+    LINNE_ASSERT(stream != NULL);
+    LINNE_ASSERT(rice_parameters != NULL);
+    LINNE_ASSERT(LINNECODER_PARAMETER_GET(rice_parameters, 0) != 0);
 
     /* 商部分を取得 */
     quot = LINNERecursiveRice_GetQuotPart(stream);
@@ -366,7 +366,7 @@ static void LINNECoder_CalculateInitialRecursiveRiceParameter(
     uint32_t smpl, i, init_param;
     uint64_t sum;
 
-    assert((coder != NULL) && (data != NULL));
+    LINNE_ASSERT((coder != NULL) && (data != NULL));
 
     /* パラメータ初期値（符号平均値）の計算 */
     sum = 0;
@@ -388,7 +388,7 @@ static void LINNECoder_PutInitialRecursiveRiceParameter(struct LINNECoder *coder
 {
     uint32_t i, first_order_param, log2_param;
 
-    assert((stream != NULL) && (coder != NULL));
+    LINNE_ASSERT((stream != NULL) && (coder != NULL));
 
     /* 1次パラメータを取得 */
     first_order_param = LINNECODER_PARAMETER_GET(coder->init_rice_parameter, 0);
@@ -400,7 +400,7 @@ static void LINNECoder_PutInitialRecursiveRiceParameter(struct LINNECoder *coder
     first_order_param = 1U << log2_param;
 
     /* 書き出し */
-    assert(log2_param < 32);
+    LINNE_ASSERT(log2_param < 32);
     BitWriter_PutBits(stream, log2_param, 5);
 
     /* パラメータ反映 */
@@ -415,11 +415,11 @@ static void LINNECoder_GetInitialRecursiveRiceParameter(struct LINNECoder *coder
 {
     uint32_t i, first_order_param, log2_param;
 
-    assert((stream != NULL) && (coder != NULL));
+    LINNE_ASSERT((stream != NULL) && (coder != NULL));
 
     /* 初期パラメータの取得 */
     BitReader_GetBits(stream, &log2_param, 5);
-    assert(log2_param < 32);
+    LINNE_ASSERT(log2_param < 32);
     first_order_param = 1U << log2_param;
 
     /* 初期パラメータの設定 */
@@ -434,8 +434,8 @@ void LINNECoder_Encode(struct LINNECoder *coder, struct BitStream *stream, const
 {
     uint32_t smpl;
 
-    assert((stream != NULL) && (data != NULL) && (coder != NULL));
-    assert(num_samples != 0);
+    LINNE_ASSERT((stream != NULL) && (data != NULL) && (coder != NULL));
+    LINNE_ASSERT(num_samples != 0);
 
     /* 先頭にパラメータ初期値を書き込む */
     LINNECoder_CalculateInitialRecursiveRiceParameter(coder, data, num_samples);
@@ -459,7 +459,7 @@ void LINNECoder_Decode(struct LINNECoder *coder, struct BitStream *stream, int32
 {
     uint32_t smpl, abs;
 
-    assert((stream != NULL) && (data != NULL) && (coder != NULL));
+    LINNE_ASSERT((stream != NULL) && (data != NULL) && (coder != NULL));
 
     /* パラメータ初期値の取得 */
     LINNECoder_GetInitialRecursiveRiceParameter(coder, stream);
