@@ -188,11 +188,22 @@ TEST(BitStreamTest, GetZeroRunLengthTest)
         uint8_t data[5];
         uint32_t test_length, run;
 
-        for (test_length = 1; test_length <= 32; test_length++) {
+        for (test_length = 0; test_length <= 32; test_length++) {
             /* ラン長だけ0を書き込み、1で止める */
             BitWriter_Open(&strm, data, sizeof(data));
             BitWriter_PutBits(&strm, 0, test_length);
             BitWriter_PutBits(&strm, 1, 1);
+            BitStream_Close(&strm);
+
+            BitReader_Open(&strm, data, sizeof(data));
+            BitReader_GetZeroRunLength(&strm, &run);
+            EXPECT_EQ(test_length, run);
+        }
+
+        /* ラン長出力APIを使用 */
+        for (test_length = 0; test_length <= 32; test_length++) {
+            BitWriter_Open(&strm, data, sizeof(data));
+            BitWriter_PutZeroRun(&strm, test_length);
             BitStream_Close(&strm);
 
             BitReader_Open(&strm, data, sizeof(data));
