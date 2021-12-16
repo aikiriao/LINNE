@@ -176,28 +176,28 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         __nbits = (nbits);\
         while (__nbits >= (stream)->bit_count) {\
             __nbits -= (stream)->bit_count;\
-                (stream)->bit_buffer\
+            (stream)->bit_buffer\
                 |= (uint32_t)BITSTREAM_GETLOWERBITS(\
                         (uint32_t)(val) >> __nbits, (stream)->bit_count);\
-                \
-                /* 終端に達していないかチェック */\
-                assert((stream)->memory_p >= (stream)->memory_image);\
-                assert((stream)->memory_p\
-                        < ((stream)->memory_image + (stream)->memory_size));\
-                \
-                /* メモリに書き出し */\
-                (*(stream)->memory_p) = ((stream)->bit_buffer & 0xFF);\
-                (stream)->memory_p++;\
-                \
-                /* バッファをリセット */\
-                (stream)->bit_buffer = 0;\
-                (stream)->bit_count = 8;\
+            \
+            /* 終端に達していないかチェック */\
+            assert((stream)->memory_p >= (stream)->memory_image);\
+            assert((stream)->memory_p\
+                    < ((stream)->memory_image + (stream)->memory_size));\
+            \
+            /* メモリに書き出し */\
+            (*(stream)->memory_p) = ((stream)->bit_buffer & 0xFF);\
+            (stream)->memory_p++;\
+            \
+            /* バッファをリセット */\
+            (stream)->bit_buffer = 0;\
+            (stream)->bit_count = 8;\
         }\
         \
-        /* 端数ビットの処理:\
+        /* 端数ビットの処理:
         * 残った分をバッファの上位ビットにセット */\
         assert(__nbits <= 8);\
-        (stream)->bit_count  -= __nbits;\
+        (stream)->bit_count -= __nbits;\
         (stream)->bit_buffer\
             |= (uint32_t)BITSTREAM_GETLOWERBITS(\
                 (uint32_t)(val), __nbits) << (stream)->bit_count;\
@@ -246,21 +246,21 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         __nbits = (nbits);\
         while (__nbits > (stream)->bit_count) {\
             __nbits -= (stream)->bit_count;\
-                __tmp\
+            __tmp\
                 |= BITSTREAM_GETLOWERBITS(\
                         (stream)->bit_buffer, (stream)->bit_count) << __nbits;\
-                \
-                /* 終端に達していないかチェック */\
-                assert((stream)->memory_p >= (stream)->memory_image);\
-                assert((stream)->memory_p\
-                        < ((stream)->memory_image + (stream)->memory_size));\
-                \
-                /* メモリから読み出し */\
-                __ch = (*(stream)->memory_p);\
-                (stream)->memory_p++;\
-                \
-                (stream)->bit_buffer  = __ch;\
-                (stream)->bit_count   = 8;\
+            \
+            /* 終端に達していないかチェック */\
+            assert((stream)->memory_p >= (stream)->memory_image);\
+            assert((stream)->memory_p\
+                    < ((stream)->memory_image + (stream)->memory_size));\
+            \
+            /* メモリから読み出し */\
+            __ch = (*(stream)->memory_p);\
+            (stream)->memory_p++;\
+            \
+            (stream)->bit_buffer = __ch;\
+            (stream)->bit_count = 8;\
         }\
         \
         /* 端数ビットの処理
