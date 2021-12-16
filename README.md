@@ -11,7 +11,7 @@ LInear-predictive Neural Net Encoder
 ## Build LINNE Codec
 
 ```bash
-git clone https://github.com/ShounoLab/LINNE.git
+git clone https://github.com/aikiriao/LINNE.git
 cd LINNE/tools/linne_codec
 cmake -B build
 cmake --build build
