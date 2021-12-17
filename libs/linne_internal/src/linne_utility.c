@@ -60,6 +60,14 @@ double LINNEUtility_Round(double d)
     return (d >= 0.0f) ? floor(d + 0.5f) : -floor(-d + 0.5f);
 }
 
+/* log2関数（C89で定義されていない） */
+double LINNEUtility_Log2(double d)
+{
+#define INV_LOGE2 (1.4426950408889634)  /* 1 / log(2) */
+    return log(d) * INV_LOGE2;
+#undef INV_LOGE2
+}
+
 /* CRC16(IBM)の計算 */
 uint16_t LINNEUtility_CalculateCRC16(const uint8_t *data, uint64_t data_size)
 {

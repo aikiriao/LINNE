@@ -120,6 +120,9 @@ extern "C" {
 /* round関数(C89で用意されていない) */
 double LINNEUtility_Round(double d);
 
+/* log2関数（C89で定義されていない） */
+double LINNEUtility_Log2(double d);
+
 /* CRC16(IBM)の計算 */
 uint16_t LINNEUtility_CalculateCRC16(const uint8_t *data, uint64_t data_size);
 
