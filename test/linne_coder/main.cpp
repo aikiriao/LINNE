@@ -74,122 +74,13 @@ TEST(LINNECoderTest, CreateDestroyHandleTest)
 /* 再帰的ライス符号テスト */
 TEST(LINNECoderTest, RecursiveRiceTest)
 {
-    /* 簡単に出力テスト */
-    {
-        uint32_t code;
-        uint8_t data[16];
-        struct BitStream strm;
-        RecursiveRiceParameter param_array[2] = {0, 0};
-
-        /* 0を4回出力 */
-        memset(data, 0, sizeof(data));
-        LINNECODER_PARAMETER_SET(param_array, 0, 1);
-        LINNECODER_PARAMETER_SET(param_array, 1, 1);
-        BitWriter_Open(&strm, data, sizeof(data));
-        LINNERecursiveRice_PutCode(&strm, param_array, 0);
-        LINNERecursiveRice_PutCode(&strm, param_array, 0);
-        LINNERecursiveRice_PutCode(&strm, param_array, 0);
-        LINNERecursiveRice_PutCode(&strm, param_array, 0);
-        BitStream_Close(&strm);
-
-        /* 取得 */
-        LINNECODER_PARAMETER_SET(param_array, 0, 1);
-        LINNECODER_PARAMETER_SET(param_array, 1, 1);
-        BitReader_Open(&strm, data, sizeof(data));
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(0, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(0, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(0, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(0, code);
-        BitStream_Close(&strm);
-
-        /* 1を4回出力 */
-        memset(data, 0, sizeof(data));
-        LINNECODER_PARAMETER_SET(param_array, 0, 1);
-        LINNECODER_PARAMETER_SET(param_array, 1, 1);
-        BitWriter_Open(&strm, data, sizeof(data));
-        LINNERecursiveRice_PutCode(&strm, param_array, 1);
-        LINNERecursiveRice_PutCode(&strm, param_array, 1);
-        LINNERecursiveRice_PutCode(&strm, param_array, 1);
-        LINNERecursiveRice_PutCode(&strm, param_array, 1);
-        BitStream_Close(&strm);
-
-        /* 取得 */
-        LINNECODER_PARAMETER_SET(param_array, 0, 1);
-        LINNECODER_PARAMETER_SET(param_array, 1, 1);
-        BitReader_Open(&strm, data, sizeof(data));
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(1, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(1, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(1, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(1, code);
-        BitStream_Close(&strm);
-
-
-        /* パラメータを変えて0を4回出力 */
-        memset(data, 0, sizeof(data));
-        LINNECODER_PARAMETER_SET(param_array, 0, 2);
-        LINNECODER_PARAMETER_SET(param_array, 1, 2);
-        BitWriter_Open(&strm, data, sizeof(data));
-        LINNERecursiveRice_PutCode(&strm, param_array, 0);
-        LINNERecursiveRice_PutCode(&strm, param_array, 0);
-        LINNERecursiveRice_PutCode(&strm, param_array, 0);
-        LINNERecursiveRice_PutCode(&strm, param_array, 0);
-        BitStream_Close(&strm);
-
-        /* 取得 */
-        LINNECODER_PARAMETER_SET(param_array, 0, 2);
-        LINNECODER_PARAMETER_SET(param_array, 1, 2);
-        BitReader_Open(&strm, data, sizeof(data));
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(0, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(0, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(0, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(0, code);
-        BitStream_Close(&strm);
-
-        /* パラメータを変えて3を4回出力 */
-        memset(data, 0, sizeof(data));
-        LINNECODER_PARAMETER_SET(param_array, 0, 2);
-        LINNECODER_PARAMETER_SET(param_array, 1, 2);
-        BitWriter_Open(&strm, data, sizeof(data));
-        LINNERecursiveRice_PutCode(&strm, param_array, 3);
-        LINNERecursiveRice_PutCode(&strm, param_array, 3);
-        LINNERecursiveRice_PutCode(&strm, param_array, 3);
-        LINNERecursiveRice_PutCode(&strm, param_array, 3);
-        BitStream_Close(&strm);
-
-        /* 取得 */
-        LINNECODER_PARAMETER_SET(param_array, 0, 2);
-        LINNECODER_PARAMETER_SET(param_array, 1, 2);
-        BitReader_Open(&strm, data, sizeof(data));
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(3, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(3, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(3, code);
-        code = LINNERecursiveRice_GetCode(&strm, param_array);
-        EXPECT_EQ(3, code);
-        BitStream_Close(&strm);
-    }
-
     /* 長めの信号を出力してみる */
     {
 #define TEST_OUTPUT_LENGTH (128)
         uint32_t i, code, is_ok;
         struct BitStream strm;
-        RecursiveRiceParameter param_array[2] = {0, 0};
-        uint32_t test_output_pattern[TEST_OUTPUT_LENGTH];
+        int32_t test_output_pattern[TEST_OUTPUT_LENGTH];
+        int32_t decoded[TEST_OUTPUT_LENGTH];
         uint8_t data[TEST_OUTPUT_LENGTH * 2];
 
         /* 出力の生成 */
@@ -198,23 +89,19 @@ TEST(LINNECoderTest, RecursiveRiceTest)
         }
 
         /* 出力 */
-        LINNECODER_PARAMETER_SET(param_array, 0, 1);
-        LINNECODER_PARAMETER_SET(param_array, 1, 1);
         BitWriter_Open(&strm, data, sizeof(data));
-        for (i = 0; i < TEST_OUTPUT_LENGTH; i++) {
-            LINNERecursiveRice_PutCode(&strm, param_array, test_output_pattern[i]);
-        }
+        LINNECoder_EncodePartitionedRecursiveRice(
+                &strm, test_output_pattern, TEST_OUTPUT_LENGTH);
         BitStream_Close(&strm);
 
         /* 取得 */
-        LINNECODER_PARAMETER_SET(param_array, 0, 1);
-        LINNECODER_PARAMETER_SET(param_array, 1, 1);
         BitReader_Open(&strm, data, sizeof(data));
+        LINNECoder_DecodePartitionedRecursiveRice(
+                &strm, decoded, TEST_OUTPUT_LENGTH);
         is_ok = 1;
         for (i = 0; i < TEST_OUTPUT_LENGTH; i++) {
-            code = LINNERecursiveRice_GetCode(&strm, param_array);
-            if (code != test_output_pattern[i]) {
-                printf("actual:%d != test:%d \n", code, test_output_pattern[i]);
+            if (decoded[i] != test_output_pattern[i]) {
+                printf("actual:%d != test:%d \n", decoded[i], test_output_pattern[i]);
                 is_ok = 0;
                 break;
             }
@@ -229,8 +116,8 @@ TEST(LINNECoderTest, RecursiveRiceTest)
 #define TEST_OUTPUT_LENGTH (128)
         uint32_t i, code, is_ok;
         struct BitStream strm;
-        RecursiveRiceParameter param_array[2] = {0, 0};
-        uint32_t test_output_pattern[TEST_OUTPUT_LENGTH];
+        int32_t test_output_pattern[TEST_OUTPUT_LENGTH];
+        int32_t decoded[TEST_OUTPUT_LENGTH];
         uint8_t data[TEST_OUTPUT_LENGTH * 2];
 
         /* 出力の生成 */
@@ -240,23 +127,19 @@ TEST(LINNECoderTest, RecursiveRiceTest)
         }
 
         /* 出力 */
-        LINNECODER_PARAMETER_SET(param_array, 0, 1);
-        LINNECODER_PARAMETER_SET(param_array, 1, 1);
         BitWriter_Open(&strm, data, sizeof(data));
-        for (i = 0; i < TEST_OUTPUT_LENGTH; i++) {
-            LINNERecursiveRice_PutCode(&strm, param_array, test_output_pattern[i]);
-        }
+        LINNECoder_EncodePartitionedRecursiveRice(
+                &strm, test_output_pattern, TEST_OUTPUT_LENGTH);
         BitStream_Close(&strm);
 
         /* 取得 */
-        LINNECODER_PARAMETER_SET(param_array, 0, 1);
-        LINNECODER_PARAMETER_SET(param_array, 1, 1);
         BitReader_Open(&strm, data, sizeof(data));
+        LINNECoder_DecodePartitionedRecursiveRice(
+                &strm, decoded, TEST_OUTPUT_LENGTH);
         is_ok = 1;
         for (i = 0; i < TEST_OUTPUT_LENGTH; i++) {
-            code = LINNERecursiveRice_GetCode(&strm, param_array);
-            if (code != test_output_pattern[i]) {
-                printf("actual:%d != test:%d \n", code, test_output_pattern[i]);
+            if (decoded[i] != test_output_pattern[i]) {
+                printf("actual:%d != test:%d \n", decoded[i], test_output_pattern[i]);
                 is_ok = 0;
                 break;
             }
@@ -265,55 +148,6 @@ TEST(LINNECoderTest, RecursiveRiceTest)
         BitStream_Close(&strm);
 #undef TEST_OUTPUT_LENGTH
     }
-
-    /* 実データを符号化してみる */
-    {
-        uint32_t i, encsize;
-        struct stat fstat;
-        const char test_infile_name[] = "PriChanIcon.png";
-        uint8_t*    fileimg;
-        uint8_t*    encimg;
-        uint8_t*    decimg;
-        FILE*       fp;
-        struct BitStream strm;
-        RecursiveRiceParameter param_array[2];
-
-        /* 入力データ読み出し */
-        stat(test_infile_name, &fstat);
-        fileimg = (uint8_t *)malloc(fstat.st_size);
-        encimg  = (uint8_t *)malloc(2 * fstat.st_size);  /* PNG画像のため増えることを想定 */
-        decimg  = (uint8_t *)malloc(fstat.st_size);
-        fp = fopen(test_infile_name, "rb");
-        fread(fileimg, sizeof(uint8_t), fstat.st_size, fp);
-        fclose(fp);
-
-        /* 書き込み */
-        BitWriter_Open(&strm, encimg, 2 * fstat.st_size);
-        LINNECODER_PARAMETER_SET(param_array, 0, 1);
-        LINNECODER_PARAMETER_SET(param_array, 1, 1);
-        for (i = 0; i < fstat.st_size; i++) {
-            LINNERecursiveRice_PutCode(&strm, param_array, fileimg[i]);
-        }
-        BitStream_Flush(&strm);
-        BitStream_Tell(&strm, (int32_t *)&encsize);
-        BitStream_Close(&strm);
-
-        /* 読み込み */
-        BitReader_Open(&strm, encimg, encsize);
-        LINNECODER_PARAMETER_SET(param_array, 0, 1);
-        LINNECODER_PARAMETER_SET(param_array, 1, 1);
-        for (i = 0; i < fstat.st_size; i++) {
-            decimg[i] = (uint8_t)LINNERecursiveRice_GetCode(&strm, param_array);
-        }
-        BitStream_Close(&strm);
-
-        /* 一致確認 */
-        EXPECT_EQ(0, memcmp(fileimg, decimg, sizeof(uint8_t) * fstat.st_size));
-
-        free(decimg);
-        free(fileimg);
-    }
-
 }
 
 int main(int argc, char **argv)
