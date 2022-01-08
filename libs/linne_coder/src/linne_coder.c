@@ -125,8 +125,51 @@ static uint32_t Gamma_GetCode(struct BitStream *stream)
     return (uint32_t)((1UL << (ndigit - 1)) + bitsbuf - 1);
 }
 
+/* 再帰的Rice符号の出力 */
+static void RecursiveRice_PutCode(struct BitStream *stream, uint32_t k1, uint32_t k2, uint32_t uval)
+{
+    const uint32_t k1pow = 1U << k1;
+    const uint32_t k2mask = (1U << k2) - 1;
+
+    LINNE_ASSERT(stream != NULL);
+
+    if (uval < k1pow) {
+        /* 1段目で符号化 */
+        BitWriter_PutBits(stream, 1, 1);
+        BitWriter_PutBits(stream, uval, k1);
+    } else {
+        /* 1段目のパラメータで引き、2段目のパラメータでRice符号化 */
+        uval -= k1pow;
+        BitWriter_PutZeroRun(stream, 1 + (uval >> k2));
+        BitWriter_PutBits(stream, uval & k2mask, k2);
+    }
+}
+
+/* 再帰的Rice符号の取得 */
+static uint32_t RecursiveRice_GetCode(struct BitStream *stream, uint32_t k1, uint32_t k2)
+{
+    uint32_t quot, uval;
+    const uint32_t k1pow = 1U << k1;
+
+    LINNE_ASSERT(stream != NULL);
+
+    /* 商（alpha符号）の取得 */
+    BitReader_GetZeroRunLength(stream, &quot);
+
+    /* 商で場合分け */
+    if (quot == 0) {
+        BitReader_GetBits(stream, &uval, k1);
+    } else {
+        BitReader_GetBits(stream, &uval, k2);
+        uval += k1pow + ((quot - 1) << k2);
+    }
+
+    return uval;
+}
+
+/* 最適な符号化パラメータの計算 */
 static void LINNECoder_CalculateOptimalRecursiveRiceParameter(
-    const double mean, uint32_t *optk2, double *bits_per_sample)
+    const double mean, uint32_t *optk1, uint32_t *optk2, double *bits_per_sample)
 {
     uint32_t k1, k2;
     double rho, fk1, fk2, bps;
@@ -146,6 +189,7 @@ static void LINNECoder_CalculateOptimalRecursiveRiceParameter(
 
     /* 結果出力 */
     (*optk2) = k2;
+    (*optk1) = k2 + 1;
 
     if (bits_per_sample != NULL) {
         (*bits_per_sample) = bps;
@@ -198,11 +242,11 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, 
         best_porder = 0;
         for (porder = 0; porder <= max_porder; porder++) {
             const uint32_t nsmpl = (num_samples >> porder);
-            uint32_t k2, prevk2;
+            uint32_t k1, k2, prevk2;
             double bps;
             double bits = 0.0f;
             for (part = 0; part < (1 << porder); part++) {
-                LINNECoder_CalculateOptimalRecursiveRiceParameter(part_mean[porder][part], &k2, &bps);
+                LINNECoder_CalculateOptimalRecursiveRiceParameter(part_mean[porder][part], &k1, &k2, &bps);
                 bits += bps * nsmpl;
                 if (part == 0) {
                     bits += LINNECODER_RICE_PARAMETER_BITS;
@@ -229,11 +273,7 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, 
         BitWriter_PutBits(stream, best_porder, LINNECODER_LOG2_MAX_NUM_PARTITIONS);
 
         for (part = 0; part < (1 << best_porder); part++) {
-            uint32_t k1pow, k2mask;
-            LINNECoder_CalculateOptimalRecursiveRiceParameter(part_mean[best_porder][part], &k2, NULL);
-            k1 = k2 + 1;
-            k1pow = 1U << k1;
-            k2mask = ((1U << k2) - 1);
+            LINNECoder_CalculateOptimalRecursiveRiceParameter(part_mean[best_porder][part], &k1, &k2, NULL);
             if (part == 0) {
                 BitWriter_PutBits(stream, k2, LINNECODER_RICE_PARAMETER_BITS);
             } else {
@@ -242,15 +282,8 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, 
             }
             prevk2 = k2;
             for (smpl = 0; smpl < nsmpl; smpl++) {
-                uint32_t val = LINNEUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
-                if (val < k1pow) {
-                    BitWriter_PutBits(stream, 1, 1);
-                    BitWriter_PutBits(stream, val, k1);
-                } else {
-                    val -= k1pow;
-                    BitWriter_PutZeroRun(stream, 1 + (val >> k2));
-                    BitWriter_PutBits(stream, val & k2mask, k2);
-                }
+                const uint32_t uval = LINNEUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
+                RecursiveRice_PutCode(stream, k1, k2, uval);
             }
         }
     }
@@ -266,7 +299,6 @@ static void LINNECoder_DecodePartitionedRecursiveRice(struct BitStream *stream, 
 
     nsmpl = num_samples >> best_porder;
     for (part = 0; part < (1 << best_porder); part++) {
-        uint32_t quot, rest, k1pow;
         if (part == 0) {
             BitReader_GetBits(stream, &k2, LINNECODER_RICE_PARAMETER_BITS);
         } else {
@@ -274,16 +306,8 @@ static void LINNECoder_DecodePartitionedRecursiveRice(struct BitStream *stream, 
             k2 = (uint32_t)((int32_t)k2 + LINNEUTILITY_UINT32_TO_SINT32(udiff));
         }
         k1 = k2 + 1;
-        k1pow = 1U << k1;
         for (smpl = 0; smpl < nsmpl; smpl++) {
-            uint32_t uval;
-            BitReader_GetZeroRunLength(stream, &quot);
-            if (quot == 0) {
-                BitReader_GetBits(stream, &uval, k1);
-            } else {
-                BitReader_GetBits(stream, &rest, k2);
-                uval = k1pow + ((quot - 1) << k2) + rest;
-            }
+            const uint32_t uval = RecursiveRice_GetCode(stream, k1, k2);
             data[part * nsmpl + smpl] = LINNEUTILITY_UINT32_TO_SINT32(uval);
         }
     }
