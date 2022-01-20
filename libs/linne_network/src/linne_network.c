@@ -548,7 +548,7 @@ static double LINNENetwork_CalculateGradient(
 }
 
 /* Levinson-Durbin法に基づく最適なユニット数とパラメータの設定 */
-void LINNENetwork_SetUnitsAndParametersByLevinsonDurbin(
+void LINNENetwork_SetUnitsAndParameters(
         struct LINNENetwork *net, const double *input, uint32_t num_samples)
 {
     int32_t l;

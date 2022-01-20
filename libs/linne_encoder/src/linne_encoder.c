@@ -632,7 +632,8 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
         for (smpl = 0; smpl < num_analyze_samples; smpl++) {
             encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0f, -(int32_t)(header->bits_per_sample - 1));
         }
-        LINNENetwork_SetUnitsAndParametersByLevinsonDurbin(encoder->network, encoder->buffer_double, num_analyze_samples);
+        /* ユニット数とパラメータ設定 */
+        LINNENetwork_SetUnitsAndParameters(encoder->network, encoder->buffer_double, num_analyze_samples);
         /* ネットワーク学習 */
         if (encoder->enable_learning != 0) {
             LINNENetworkTrainer_Train(encoder->trainer,
@@ -641,6 +642,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
                     LINNE_TRAINING_PARAMETER_LEARNING_RATE,
                     LINNE_TRAINING_PARAMETER_LOSS_EPSILON);
         }
+        /* ユニット数とパラメータ取得・量子化 */
         LINNENetwork_GetLayerNumUnits(encoder->network, encoder->num_units[ch], encoder->max_num_layers);
         LINNENetwork_GetParameters(encoder->network, encoder->params_double[ch], encoder->max_num_layers, encoder->max_num_parameters_per_layer);
         for (l = 0; l < encoder->parameter_preset->num_layers; l++) {

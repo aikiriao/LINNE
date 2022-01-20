@@ -32,8 +32,8 @@ void LINNENetwork_SetLayerStructure(
 double LINNENetwork_CalculateLoss(
         struct LINNENetwork *net, double *data, uint32_t num_samples);
 
-/* Levinson-Durbin法に基づく最適なユニット数とパラメータの設定 */
-void LINNENetwork_SetUnitsAndParametersByLevinsonDurbin(
+/* 最適なユニット数とパラメータの設定 */
+void LINNENetwork_SetUnitsAndParameters(
         struct LINNENetwork *net, const double *input, uint32_t num_samples);
 
 /* パラメータのクリア */
