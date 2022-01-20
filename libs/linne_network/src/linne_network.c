@@ -263,10 +263,11 @@ static void LINNENetworkLayer_Backward(
     }
 }
 
-/* 最適なユニット数とパラメータの探索・設定 */
-static void LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
+/* 最適なユニット数の探索 */
+static void LINNENetworkLayer_SearchOptimalNumUnits(
         struct LINNENetworkLayer *layer, struct LPCCalculator *lpcc,
-        const double *input, uint32_t num_samples, const uint32_t max_num_units)
+        const double *input, uint32_t num_samples, const uint32_t max_num_units,
+        uint32_t *best_num_units)
 {
     uint32_t unit, nunits;
     double min_loss = FLT_MAX;
@@ -276,6 +277,7 @@ static void LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
     LINNE_ASSERT(layer != NULL);
     LINNE_ASSERT(lpcc != NULL);
     LINNE_ASSERT(input != NULL);
+    LINNE_ASSERT(best_num_units != NULL);
     LINNE_ASSERT(layer->num_params >= max_num_units);
     LINNE_ASSERT(LINNEUTILITY_IS_POWERED_OF_2(max_num_units));
 
@@ -321,29 +323,32 @@ static void LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
         }
     }
 
-    /* 最適なユニット数とパラメータの設定 */
+    /* 最適なユニット数の設定 */
     LINNE_ASSERT(tmp_best_nunits != 0);
-    layer->num_units = tmp_best_nunits;
+    (*best_num_units) = tmp_best_nunits;
+}
 
-    /* パラメータの設定 */
-    /* 注意）パラメータの順序を反転している。行列演算と定義を合わせるため */
-    {
-        uint32_t i;
-        const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
-        const uint32_t nsmpls_per_unit = num_samples / layer->num_units;
-        for (unit = 0; unit < layer->num_units; unit++) {
-            const double *pinput = &input[unit * nsmpls_per_unit];
-            double *pparams = &layer->params[unit * nparams_per_unit];
-            LPCApiResult ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
-                    pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION);
-            LINNE_ASSERT(ret == LPC_APIRESULT_OK);
-            /* 行列（畳み込み）演算でインデックスが増える方向にしたい都合上、
-            * パラメータ順序を変転 */
-            for (i = 0; i < nparams_per_unit / 2; i++) {
-                double tmp = pparams[i];
-                pparams[i] = pparams[nparams_per_unit - i - 1];
-                pparams[nparams_per_unit - i - 1] = tmp;
-            }
+/* パラメータの設定 */
+static void LINNENetworkLayer_SetParameter(
+    struct LINNENetworkLayer *layer, struct LPCCalculator *lpcc,
+    const double *input, uint32_t num_samples)
+{
+    uint32_t i, unit;
+    const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
+    const uint32_t nsmpls_per_unit = num_samples / layer->num_units;
+
+    for (unit = 0; unit < layer->num_units; unit++) {
+        const double *pinput = &input[unit * nsmpls_per_unit];
+        double *pparams = &layer->params[unit * nparams_per_unit];
+        LPCApiResult ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
+            pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION);
+        LINNE_ASSERT(ret == LPC_APIRESULT_OK);
+        /* 行列（畳み込み）演算でインデックスが増える方向にしたい都合上、
+        * パラメータ順序を変転 */
+        for (i = 0; i < nparams_per_unit / 2; i++) {
+            double tmp = pparams[i];
+            pparams[i] = pparams[nparams_per_unit - i - 1];
+            pparams[nparams_per_unit - i - 1] = tmp;
         }
     }
 }
@@ -555,10 +560,14 @@ void LINNENetwork_SetUnitsAndParametersByLevinsonDurbin(
 
     memcpy(net->data_buffer, input, sizeof(double) * num_samples);
     for (l = 0; l < net->num_layers; l++) {
-        LINNENetworkLayer_SetOptimalNumUnitsAndParameter(
-                net->layers[l], net->lpcc, net->data_buffer, num_samples,
-                LINNEUTILITY_MIN(max_num_units, net->layers[l]->num_params));
-        LINNENetworkLayer_Forward(net->layers[l], net->data_buffer, num_samples);
+        uint32_t best_num_units;
+        struct LINNENetworkLayer* layer = net->layers[l];
+        LINNENetworkLayer_SearchOptimalNumUnits(
+            layer, net->lpcc, net->data_buffer, num_samples,
+            LINNEUTILITY_MIN(max_num_units, layer->num_params), &best_num_units);
+        layer->num_units = best_num_units;
+        LINNENetworkLayer_SetParameter(layer, net->lpcc, net->data_buffer, num_samples);
+        LINNENetworkLayer_Forward(layer, net->data_buffer, num_samples);
     }
 }
 
