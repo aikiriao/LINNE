@@ -244,8 +244,8 @@ static int do_decode(const char* in_filename, const char* out_filename, uint8_t 
     /* 一括デコード */
     if ((ret = LINNEDecoder_DecodeWhole(decoder,
                     buffer, buffer_size,
-                    (int32_t **)out_wav->data, out_wav->format.num_channels, out_wav->format.num_samples)
-                != LINNE_APIRESULT_OK)) {
+                    (int32_t **)out_wav->data, out_wav->format.num_channels, out_wav->format.num_samples))
+                != LINNE_APIRESULT_OK) {
         fprintf(stderr, "Decoding error! %d \n", ret);
         return 1;
     }
