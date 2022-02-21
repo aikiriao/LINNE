@@ -160,7 +160,7 @@ void LINNEPreemphasisFilter_CalculateCoefficient(
 {
     uint32_t smpl;
     int32_t coef;
-    double corr[2] = { 0.0f, 0.0f };
+    double corr[2] = { 0.0, 0.0 };
     double curr;
 
     LINNE_ASSERT(preem != NULL);
@@ -178,7 +178,7 @@ void LINNEPreemphasisFilter_CalculateCoefficient(
     corr[1] /= corr[0];
 
     /* 固定小数化 */
-    if ((corr[0] < 1e-6) || (corr[1] < 0.0f)) {
+    if ((corr[0] < 1e-6) || (corr[1] < 0.0)) {
         /* 1次相関が負の場合は振動しているためプリエンファシスの効果は薄い */
         coef = 0;
     } else {
