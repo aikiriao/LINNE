@@ -176,16 +176,16 @@ static void LINNECoder_CalculateOptimalRecursiveRiceParameter(
 #define OPTX 0.5127629514437670454896078808815218508243560791015625 /* (x - 1)^2 + ln(2) x ln(x) = 0 の解 */
 
     /* 幾何分布のパラメータを最尤推定 */
-    rho = 1.0f / (1.0f + mean);
+    rho = 1.0 / (1.0 + mean);
 
     /* 最適なパラメータの計算 */
-    k2 = (uint32_t)LINNEUTILITY_MAX(0, floor(LINNEUtility_Log2(log(OPTX) / log(1.0f - rho))));
+    k2 = (uint32_t)LINNEUTILITY_MAX(0, floor(LINNEUtility_Log2(log(OPTX) / log(1.0 - rho))));
     k1 = k2 + 1;
 
     /* 平均符号長の計算 */
-    fk1 = pow(1.0f - rho, (double)(1 << k1));
-    fk2 = pow(1.0f - rho, (double)(1 << k2));
-    bps = (1.0f + k1) * (1.0f - fk1) + (1.0f + k2 + 1.0f / (1.0f - fk2)) * fk1;
+    fk1 = pow(1.0 - rho, (double)(1 << k1));
+    fk2 = pow(1.0 - rho, (double)(1 << k2));
+    bps = (1.0 + k1) * (1.0 - fk1) + (1.0 + k2 + 1.0 / (1.0 - fk2)) * fk1;
 
     /* 結果出力 */
     (*optk2) = k2;
@@ -221,7 +221,7 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, 
         /* 最大分割時の平均値 */
         for (part = 0; part < max_num_partitions; part++) {
             const uint32_t nsmpl = num_samples / max_num_partitions;
-            double part_sum = 0.0f;
+            double part_sum = 0.0;
             for (smpl = 0; smpl < nsmpl; smpl++) {
                 part_sum += LINNEUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
             }
@@ -231,7 +231,7 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, 
         /* より大きい分割の平均は、小さい分割の平均をマージして計算 */
         for (i = (int32_t)(max_porder - 1); i >= 0; i--) {
             for (part = 0; part < (1 << i); part++) {
-                part_mean[i][part] = (part_mean[i + 1][2 * part] + part_mean[i + 1][2 * part + 1]) / 2.0f;
+                part_mean[i][part] = (part_mean[i + 1][2 * part] + part_mean[i + 1][2 * part + 1]) / 2.0;
             }
         }
     }
@@ -244,7 +244,7 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, 
             const uint32_t nsmpl = (num_samples >> porder);
             uint32_t k1, k2, prevk2;
             double bps;
-            double bits = 0.0f;
+            double bits = 0.0;
             for (part = 0; part < (1 << porder); part++) {
                 LINNECoder_CalculateOptimalRecursiveRiceParameter(part_mean[porder][part], &k1, &k2, &bps);
                 bits += bps * nsmpl;
