@@ -476,11 +476,11 @@ static LINNEBlockDataType LINNEEncoder_DecideBlockDataType(
     header = &encoder->header;
 
     /* 平均符号長の計算 */
-    mean_length = 0.0f;
+    mean_length = 0.0;
     for (ch = 0; ch < header->num_channels; ch++) {
         /* 入力をdouble化 */
         for (smpl = 0; smpl < num_samples; smpl++) {
-            encoder->buffer_double[smpl] = input[ch][smpl] * pow(2.0f, -(int32_t)(header->bits_per_sample - 1));
+            encoder->buffer_double[smpl] = input[ch][smpl] * pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         }
         /* 推定符号長計算 */
         mean_length += LINNENetwork_EstimateCodeLength(encoder->network,
@@ -644,7 +644,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
         uint32_t smpl;
         /* double精度の信号に変換（[-1,1]の範囲に正規化） */
         for (smpl = 0; smpl < num_analyze_samples; smpl++) {
-            encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0f, -(int32_t)(header->bits_per_sample - 1));
+            encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         }
         /* ユニット数とパラメータ設定 */
         LINNENetwork_SetUnitsAndParameters(encoder->network, encoder->buffer_double, num_analyze_samples);
