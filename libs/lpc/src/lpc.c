@@ -446,7 +446,7 @@ static LPCError LPCAF_CalculateCoefMatrixAndVector(
         }
     }
 
-    /* 符号反転 / 対称要素に拡張 */
+    /* 対称要素に拡張 */
     for (i = 0; i < coef_order; i++) {
         for (j = i + 1; j < coef_order; j++) {
             r_mat[j][i] = r_mat[i][j];
