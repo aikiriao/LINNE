@@ -25,6 +25,8 @@ struct LINNEDecoder {
     struct LINNEHeader header; /* ヘッダ */
     struct LINNECoder *coder; /* 符号化ハンドル */
     uint32_t max_num_channels; /* デコード可能な最大チャンネル数 */
+    uint32_t max_num_layers; /* 最大レイヤー数 */
+    uint32_t max_num_parameters_per_layer; /* 最大レイヤーあたりパラメータ数 */
     struct LINNEPreemphasisFilter **de_emphasis; /* デエンファシスフィルタ */
     int32_t ***params_int; /* LPC係数(int) */
     uint32_t **num_units; /* 各層のユニット数 */
@@ -260,6 +262,8 @@ struct LINNEDecoder *LINNEDecoder_Create(const struct LINNEDecoderConfig *config
     /* 構造体メンバセット */
     decoder->work = work;
     decoder->max_num_channels = config->max_num_channels;
+    decoder->max_num_layers = config->max_num_layers;
+    decoder->max_num_parameters_per_layer = config->max_num_parameters_per_layer;
     decoder->status_flags = 0;  /* 状態クリア */
     if (tmp_alloc_by_own == 1) {
         LINNEDECODER_SET_STATUS_FLAG(decoder, LINNEDECODER_STATUS_FLAG_ALLOCED_BY_OWN);
@@ -334,6 +338,20 @@ LINNEApiResult LINNEDecoder_SetHeader(
     /* デコーダの容量を越えてないかチェック */
     if (decoder->max_num_channels < header->num_channels) {
         return LINNE_APIRESULT_INSUFFICIENT_BUFFER;
+    }
+
+    /* 最大レイヤー数/パラメータ数のチェック */
+    {
+        uint32_t i;
+        const struct LINNEParameterPreset* preset = &g_linne_parameter_preset[header->preset];
+        if (decoder->max_num_layers < preset->num_layers) {
+            return LINNE_APIRESULT_INSUFFICIENT_BUFFER;
+        }
+        for (i = 0; i < preset->num_layers; i++) {
+            if (decoder->max_num_parameters_per_layer < preset->num_params_list[i]) {
+                return LINNE_APIRESULT_INSUFFICIENT_BUFFER;
+            }
+        }
     }
 
     /* エンコードプリセットを取得 */

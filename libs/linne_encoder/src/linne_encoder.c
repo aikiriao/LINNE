@@ -426,6 +426,20 @@ LINNEApiResult LINNEEncoder_SetEncodeParameter(
         return LINNE_APIRESULT_INSUFFICIENT_BUFFER;
     }
 
+    /* 最大レイヤー数/パラメータ数のチェック */
+    {
+        uint32_t i;
+        const struct LINNEParameterPreset* preset = &g_linne_parameter_preset[parameter->preset];
+        if (encoder->max_num_layers < preset->num_layers) {
+            return LINNE_APIRESULT_INSUFFICIENT_BUFFER;
+        }
+        for (i = 0; i < preset->num_layers; i++) {
+            if (encoder->max_num_parameters_per_layer < preset->num_params_list[i]) {
+                return LINNE_APIRESULT_INSUFFICIENT_BUFFER;
+            }
+        }
+    }
+
     /* ヘッダ設定 */
     encoder->header = tmp_header;
 
