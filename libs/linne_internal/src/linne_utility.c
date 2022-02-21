@@ -57,7 +57,7 @@ static const uint32_t st_nlz10_table[64] = {
 /* round関数(C89で用意されていない) */
 double LINNEUtility_Round(double d)
 {
-    return (d >= 0.0f) ? floor(d + 0.5f) : -floor(-d + 0.5f);
+    return (d >= 0.0) ? floor(d + 0.5) : -floor(-d + 0.5);
 }
 
 /* log2関数（C89で定義されていない） */
