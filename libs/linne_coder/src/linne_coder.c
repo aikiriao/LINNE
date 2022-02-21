@@ -250,8 +250,7 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, 
                 bits += bps * nsmpl;
                 if (part == 0) {
                     bits += LINNECODER_RICE_PARAMETER_BITS;
-                }
-                else {
+                } else {
                     const int32_t diff = (int32_t)k2 - (int32_t)prevk2;
                     const uint32_t udiff = LINNEUTILITY_SINT32_TO_UINT32(diff);
                     bits += LINNECODER_GAMMA_BITS(udiff);
