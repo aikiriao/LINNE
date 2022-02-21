@@ -853,9 +853,10 @@ LPCApiResult LPC_QuantizeCoefficients(
     const double *double_coef, uint32_t coef_order, uint32_t nbits_precision,
     int32_t *int_coef, uint32_t *coef_rshift)
 {
-    uint32_t ord, rshift;
-    int32_t ndigit;
-    double max;
+    uint32_t rshift;
+    int32_t ord, ndigit, qtmp;
+    double max, qerror;
+    const int32_t qmax = (1 << (nbits_precision - 1));
 
     /* 引数チェック */
     if ((double_coef == NULL) || (int_coef == NULL)
@@ -887,13 +888,22 @@ LPCApiResult LPC_QuantizeCoefficients(
     assert((int32_t)nbits_precision > ndigit);
     rshift = (uint32_t)((int32_t)nbits_precision - ndigit);
 
-    /* 右シフトして量子化 */
-    for (ord = 0; ord < coef_order; ord++) {
-        int_coef[ord] = (int32_t)LPC_Round(double_coef[ord] * (1 << rshift));
-        /* 正値の丸め込み */
-        if (int_coef[ord] >= (1 << nbits_precision)) {
-            int_coef[ord] = (1 << nbits_precision) - 1;
+    /* 量子化 */
+    qerror = 0.0;
+    for (ord = (int32_t)coef_order - 1; ord >= 0; ord--) {
+        /* 前の係数の誤差を取り込んで量子化 */
+        /* インパルスの先頭部分には誤差を入れたくないため、末尾から処理 */
+        qerror += double_coef[ord] * pow(2.0f, rshift);
+        qtmp = (int32_t)LPC_Round(qerror);
+        /* 正負境界の丸め込み */
+        if (qtmp >= qmax) {
+            qtmp = qmax - 1;
+        } else if (qtmp < -qmax) {
+            qtmp = -qmax;
         }
+        /* 引いた分が量子化誤差として残る */
+        qerror -= qtmp;
+        int_coef[ord] = qtmp;
     }
     (*coef_rshift) = rshift;
 
