@@ -293,14 +293,20 @@ static void LINNENetworkLayer_SearchOptimalNumUnits(
             continue;
         }
 
+        memcpy(layer->din, input, sizeof(double) * num_samples);
+
         /* 各ユニット数における誤差を計算し、ベストなユニット数を探る */
         for (unit = 0; unit < nunits; unit++) {
             uint32_t smpl, k;
             const double *pinput = &input[unit * nsmpls_per_unit];
             double *pparams = &params_buffer[unit * nparams_per_unit];
-            LPCApiResult ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
-                    pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT);
+            LPCApiResult ret;
+
+            /* 係数計算 */
+            ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
+                pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT, LPC_WINDOWTYPE_SIN);
             LINNE_ASSERT(ret == LPC_APIRESULT_OK);
+
             /* その場で予測, 平均絶対値誤差を計算 */
             for (smpl = 0; smpl < nsmpls_per_unit; smpl++) {
                 double residual = pinput[smpl];
@@ -337,12 +343,18 @@ static void LINNENetworkLayer_SetParameter(
     const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
     const uint32_t nsmpls_per_unit = num_samples / layer->num_units;
 
+    memcpy(layer->din, input, sizeof(double) * num_samples);
+
     for (unit = 0; unit < layer->num_units; unit++) {
         const double *pinput = &input[unit * nsmpls_per_unit];
         double *pparams = &layer->params[unit * nparams_per_unit];
-        LPCApiResult ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
-            pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION);
+        LPCApiResult ret;
+
+        /* 係数計算 */
+        ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
+            pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION, LPC_WINDOWTYPE_SIN);
         LINNE_ASSERT(ret == LPC_APIRESULT_OK);
+
         /* 行列（畳み込み）演算でインデックスが増える方向にしたい都合上、
         * パラメータ順序を変転 */
         for (i = 0; i < nparams_per_unit / 2; i++) {
@@ -358,6 +370,7 @@ int32_t LINNENetwork_CalculateWorkSize(
         uint32_t max_num_samples, uint32_t max_num_layers, uint32_t max_num_parameters_per_layer)
 {
     int32_t work_size;
+    struct LPCCalculatorConfig lpcconfig;
 
     /* 引数チェック */
     if ((max_num_samples == 0)
@@ -371,10 +384,13 @@ int32_t LINNENetwork_CalculateWorkSize(
         return -1;
     }
 
+    lpcconfig.max_order = max_num_parameters_per_layer;
+    lpcconfig.max_num_samples = max_num_samples;
+
     work_size = sizeof(struct LINNENetwork) + LINNE_MEMORY_ALIGNMENT;
     work_size += sizeof(struct LINNENetworkLayer *) * max_num_layers;
     work_size += max_num_layers * (size_t)LINNENetworkLayer_CalculateWorkSize(max_num_samples, max_num_parameters_per_layer);
-    work_size += LPCCalculator_CalculateWorkSize(max_num_parameters_per_layer);
+    work_size += LPCCalculator_CalculateWorkSize(&lpcconfig);
     work_size += (sizeof(double) * max_num_samples + LINNE_MEMORY_ALIGNMENT);
 
     return work_size;
@@ -435,8 +451,13 @@ struct LINNENetwork *LINNENetwork_Create(
 
     /* LPC係数計算ハンドル作成 */
     {
-        const int32_t lpcc_work_size = LPCCalculator_CalculateWorkSize(max_num_parameters_per_layer);
-        net->lpcc = LPCCalculator_Create(max_num_parameters_per_layer, work_ptr, lpcc_work_size);
+        int32_t lpcc_work_size;
+        struct LPCCalculatorConfig lpcconfig;
+
+        lpcconfig.max_order = max_num_parameters_per_layer;
+        lpcconfig.max_num_samples = max_num_samples;
+        lpcc_work_size  = LPCCalculator_CalculateWorkSize(&lpcconfig);
+        net->lpcc = LPCCalculator_Create(&lpcconfig, work_ptr, lpcc_work_size);
         work_ptr += lpcc_work_size;
     }
 
@@ -631,7 +652,7 @@ double LINNENetwork_EstimateCodeLength(
 
     /* TODO: 仮実装。1層目のパラメータのみを用いて推定 */
     ret = LPCCalculator_EstimateCodeLength(net->lpcc,
-            data, num_samples, bits_per_sample, net->layers[0]->num_params, &tmp_length);
+            data, num_samples, bits_per_sample, net->layers[0]->num_params, &tmp_length, LPC_WINDOWTYPE_SIN);
     LINNE_ASSERT(ret == LPC_APIRESULT_OK);
 
     return tmp_length;

@@ -3,27 +3,40 @@
 
 #include <stdint.h>
 
-/* LPC係数計算ハンドル */
-struct LPCCalculator;
-
 /* API結果型 */
 typedef enum LPCApiResultTag {
-    LPC_APIRESULT_OK,                     /* OK */
+    LPC_APIRESULT_OK = 0,                 /* OK */
     LPC_APIRESULT_NG,                     /* 分類不能なエラー */
     LPC_APIRESULT_INVALID_ARGUMENT,       /* 不正な引数 */
     LPC_APIRESULT_EXCEED_MAX_ORDER,       /* 最大次数を超えた */
+    LPC_APIRESULT_EXCEED_MAX_NUM_SAMPLES, /* 最大入力サンプル数を超えた */
     LPC_APIRESULT_FAILED_TO_CALCULATION   /* 計算に失敗 */
 } LPCApiResult;
+
+/* 窓関数の種類 */
+typedef enum LPCWindowTypeTag {
+    LPC_WINDOWTYPE_RECTANGULAR = 0, /* 矩形窓 */
+    LPC_WINDOWTYPE_SIN              /* サイン窓 */
+} LPCWindowType;
+
+/* LPC係数計算ハンドル */
+struct LPCCalculator;
+
+/* 初期化コンフィグ */
+struct LPCCalculatorConfig {
+    uint32_t max_order;        /* 最大次数 */
+    uint32_t max_num_samples;  /* 最大入力サンプル数 */
+};
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* LPC係数計算ハンドルのワークサイズ計算 */
-int32_t LPCCalculator_CalculateWorkSize(uint32_t max_order);
+int32_t LPCCalculator_CalculateWorkSize(const struct LPCCalculatorConfig *config);
 
 /* LPC係数計算ハンドルの作成 */
-struct LPCCalculator *LPCCalculator_Create(uint32_t max_order, void *work, int32_t work_size);
+struct LPCCalculator *LPCCalculator_Create(const struct LPCCalculatorConfig *config, void *work, int32_t work_size);
 
 /* LPC係数計算ハンドルの破棄 */
 void LPCCalculator_Destroy(struct LPCCalculator *lpcc);
@@ -31,13 +44,14 @@ void LPCCalculator_Destroy(struct LPCCalculator *lpcc);
 /* Levinson-Durbin再帰計算によりLPC係数を求める */
 LPCApiResult LPCCalculator_CalculateLPCCoefficients(
     struct LPCCalculator *lpcc,
-    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order);
+    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
+    LPCWindowType window_type);
 
 /* 補助関数法よりLPC係数を求める（倍精度） */
 LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     struct LPCCalculator *lpcc,
     const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
-    uint32_t max_num_iteration);
+    uint32_t max_num_iteration, LPCWindowType window_type);
 
 /* Burg法によりLPC係数を求める（倍精度） */
 LPCApiResult LPCCalculator_CalculateLPCCoefficientsBurg(
@@ -46,14 +60,15 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsBurg(
 
 /* 入力データからサンプルあたりの推定符号長を求める */
 LPCApiResult LPCCalculator_EstimateCodeLength(
-        struct LPCCalculator *lpcc,
-        const double *data, uint32_t num_samples, uint32_t bits_per_sample,
-        uint32_t coef_order, double *length_per_sample_bits);
+    struct LPCCalculator *lpcc,
+    const double *data, uint32_t num_samples, uint32_t bits_per_sample,
+    uint32_t coef_order, double *length_per_sample_bits, LPCWindowType window_type);
 
 /* MDL（最小記述長）を計算 */
 LPCApiResult LPCCalculator_CalculateMDL(
-        struct LPCCalculator *lpcc,
-        const double *data, uint32_t num_samples, uint32_t coef_order, double *mdl);
+    struct LPCCalculator *lpcc,
+    const double *data, uint32_t num_samples, uint32_t coef_order, double *mdl,
+    LPCWindowType window_type);
 
 /* LPC係数の整数量子化 */
 LPCApiResult LPC_QuantizeCoefficients(

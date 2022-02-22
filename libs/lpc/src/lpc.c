@@ -13,12 +13,15 @@
 /* nの倍数切り上げ */
 #define LPC_ROUNDUP(val, n) ((((val) + ((n) - 1)) / (n)) * (n))
 
+/* 円周率 */
+#define LPC_PI 3.1415926535897932384626433832795029
+
 /* 残差絶対値の最小値 */
 #define LPCAF_RESIDUAL_EPSILON 1e-6
 
 /* 内部エラー型 */
 typedef enum LPCErrorTag {
-    LPC_ERROR_OK,
+    LPC_ERROR_OK = 0,
     LPC_ERROR_NG,
     LPC_ERROR_SINGULAR_MATRIX,
     LPC_ERROR_INVALID_ARGUMENT
@@ -27,6 +30,7 @@ typedef enum LPCErrorTag {
 /* LPC計算ハンドル */
 struct LPCCalculator {
     uint32_t max_order; /* 最大次数 */
+    uint32_t max_num_buffer_samples; /* 最大バッファサンプル数 */
     /* 内部的な計算結果は精度を担保するため全てdoubleで持つ */
     /* floatだとサンプル数を増やすと標本自己相関値の誤差に起因して出力の計算結果がnanになる */
     double *a_vec; /* 計算用ベクトル1 */
@@ -36,6 +40,7 @@ struct LPCCalculator {
     double *auto_corr; /* 標本自己相関 */
     double *lpc_coef; /* LPC係数ベクトル */
     double *parcor_coef; /* PARCOR係数ベクトル */
+    double *buffer; /* 入力信号のバッファ領域 */
     uint8_t alloced_by_own; /* 自分で領域確保したか？ */
     void *work; /* ワーク領域先頭ポインタ */
 };
@@ -55,28 +60,30 @@ static double LPC_Log2(double d)
 }
 
 /* LPC係数計算ハンドルのワークサイズ計算 */
-int32_t LPCCalculator_CalculateWorkSize(uint32_t max_order)
+int32_t LPCCalculator_CalculateWorkSize(const struct LPCCalculatorConfig *config)
 {
     int32_t work_size;
 
     /* 引数チェック */
-    if (max_order == 0) {
+    if (config == NULL) {
         return -1;
     }
 
     work_size = sizeof(struct LPCCalculator) + LPC_ALIGNMENT;
-    work_size += (int32_t)(sizeof(double) * (max_order + 2) * 3); /* a, u, v ベクトル分の領域 */
-    work_size += (int32_t)(sizeof(double) * (max_order + 1)); /* 標本自己相関の領域 */
-    work_size += (int32_t)(sizeof(double) * (max_order + 1) * 2); /* 係数ベクトルの領域 */
+    work_size += (int32_t)(sizeof(double) * (config->max_order + 2) * 3); /* a, u, v ベクトル分の領域 */
+    work_size += (int32_t)(sizeof(double) * (config->max_order + 1)); /* 標本自己相関の領域 */
+    work_size += (int32_t)(sizeof(double) * (config->max_order + 1) * 2); /* 係数ベクトルの領域 */
     /* 補助関数法で使用する行列領域 */
-    work_size += (int32_t)(sizeof(double *) * (max_order + 1));
-    work_size += (int32_t)(sizeof(double) * (max_order + 1) * (max_order + 1));
+    work_size += (int32_t)(sizeof(double *) * (config->max_order + 1));
+    work_size += (int32_t)(sizeof(double) * (config->max_order + 1) * (config->max_order + 1));
+    /* 入力信号バッファ領域 */
+    work_size += (int32_t)(sizeof(double) * config->max_num_samples);
 
     return work_size;
 }
 
 /* LPC係数計算ハンドルの作成 */
-struct LPCCalculator *LPCCalculator_Create(uint32_t max_order, void *work, int32_t work_size)
+struct LPCCalculator* LPCCalculator_Create(const struct LPCCalculatorConfig *config, void *work, int32_t work_size)
 {
     struct LPCCalculator *lpcc;
     uint8_t *work_ptr;
@@ -84,7 +91,7 @@ struct LPCCalculator *LPCCalculator_Create(uint32_t max_order, void *work, int32
 
     /* 自前でワーク領域確保 */
     if ((work == NULL) && (work_size == 0)) {
-        if ((work_size = LPCCalculator_CalculateWorkSize(max_order)) < 0) {
+        if ((work_size = LPCCalculator_CalculateWorkSize(config)) < 0) {
             return NULL;
         }
         work = malloc((uint32_t)work_size);
@@ -92,8 +99,9 @@ struct LPCCalculator *LPCCalculator_Create(uint32_t max_order, void *work, int32
     }
 
     /* 引数チェック */
-    if ((work == NULL) || (max_order == 0)
-            || (work_size < LPCCalculator_CalculateWorkSize(max_order))) {
+    if ((config == NULL) || (work == NULL)
+            || (work_size < LPCCalculator_CalculateWorkSize(config))
+            || (config->max_order == 0) || (config->max_num_samples == 0)) {
         if (tmp_alloc_by_own == 1) {
             free(work);
         }
@@ -109,38 +117,46 @@ struct LPCCalculator *LPCCalculator_Create(uint32_t max_order, void *work, int32
     work_ptr += sizeof(struct LPCCalculator);
 
     /* ハンドルメンバの設定 */
-    lpcc->max_order = max_order;
+    lpcc->max_order = config->max_order;
+    lpcc->max_num_buffer_samples = config->max_num_samples;
     lpcc->work = work;
     lpcc->alloced_by_own = tmp_alloc_by_own;
 
     /* 計算用ベクトルの領域割当 */
     lpcc->a_vec = (double *)work_ptr;
-    work_ptr += sizeof(double) * (max_order + 2); /* a_0, a_k+1を含めるとmax_order+2 */
+    work_ptr += sizeof(double) * (config->max_order + 2); /* a_0, a_k+1を含めるとmax_order+2 */
     lpcc->u_vec = (double *)work_ptr;
-    work_ptr += sizeof(double) * (max_order + 2);
+    work_ptr += sizeof(double) * (config->max_order + 2);
     lpcc->v_vec = (double *)work_ptr;
-    work_ptr += sizeof(double) * (max_order + 2);
+    work_ptr += sizeof(double) * (config->max_order + 2);
 
     /* 標本自己相関の領域割当 */
     lpcc->auto_corr = (double *)work_ptr;
-    work_ptr += sizeof(double) * (max_order + 1);
+    work_ptr += sizeof(double) * (config->max_order + 1);
 
     /* 係数ベクトルの領域割当 */
     lpcc->lpc_coef = (double *)work_ptr;
-    work_ptr += sizeof(double) * (max_order + 1);
+    work_ptr += sizeof(double) * (config->max_order + 1);
     lpcc->parcor_coef = (double *)work_ptr;
-    work_ptr += sizeof(double) * (max_order + 1);
+    work_ptr += sizeof(double) * (config->max_order + 1);
 
     /* 補助関数法/Burg法で使用する行列領域 */
     {
         uint32_t ord;
         lpcc->r_mat = (double **)work_ptr;
-        work_ptr += sizeof(double *) * (max_order + 1);
-        for (ord = 0; ord < max_order + 1; ord++) {
+        work_ptr += sizeof(double *) * (config->max_order + 1);
+        for (ord = 0; ord < config->max_order + 1; ord++) {
             lpcc->r_mat[ord] = (double *)work_ptr;
-            work_ptr += sizeof(double) * (max_order + 1);
+            work_ptr += sizeof(double) * (config->max_order + 1);
         }
     }
+
+    /* 入力信号バッファの領域 */
+    lpcc->buffer = (double *)work_ptr;
+    work_ptr += sizeof(double) * config->max_num_samples;
+
+    /* バッファオーバーフローチェック */
+    assert((work_ptr - (uint8_t *)work) <= work_size);
 
     return lpcc;
 }
@@ -154,6 +170,34 @@ void LPCCalculator_Destroy(struct LPCCalculator *lpcc)
             free(lpcc->work);
         }
     }
+}
+
+/* 窓関数の適用 */
+static LPCError LPC_ApplyWindow(
+    LPCWindowType window_type, const double *input, uint32_t num_samples, double *output)
+{
+    /* 引数チェック */
+    if (input == NULL || output == NULL) {
+        return LPC_ERROR_INVALID_ARGUMENT;
+    }
+
+    switch (window_type) {
+    case LPC_WINDOWTYPE_RECTANGULAR:
+        memcpy(output, input, sizeof(double) * num_samples);
+        break;
+    case LPC_WINDOWTYPE_SIN:
+        {
+            uint32_t smpl;
+            for (smpl = 0; smpl < num_samples; smpl++) {
+                output[smpl] = input[smpl] * sin((LPC_PI * smpl) / (num_samples - 1));
+            }
+        }
+        break;
+    default:
+        return LPC_ERROR_NG;
+    }
+
+    return LPC_ERROR_OK;
 }
 
 /*（標本）自己相関の計算 */
@@ -181,7 +225,7 @@ static LPCError LPC_CalculateAutoCorrelation(
 
     /* 1次以降の係数 */
     for (lag = 1; lag < order; lag++) {
-        uint32_t i, l, L;
+        uint32_t l, L;
         uint32_t Llag2;
         const uint32_t lag2 = lag << 1;
 
@@ -291,16 +335,22 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, uint32_t
 
 /* 係数計算の共通関数 */
 static LPCError LPC_CalculateCoef(
-        struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order)
+    struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order,
+    LPCWindowType window_type)
 {
     /* 引数チェック */
     if (lpcc == NULL) {
         return LPC_ERROR_INVALID_ARGUMENT;
     }
 
+    /* 窓関数を適用 */
+    if (LPC_ApplyWindow(window_type, data, num_samples, lpcc->buffer) != LPC_ERROR_OK) {
+        return LPC_ERROR_NG;
+    }
+
     /* 自己相関を計算 */
     if (LPC_CalculateAutoCorrelation(
-                data, num_samples, lpcc->auto_corr, coef_order + 1) != LPC_ERROR_OK) {
+            lpcc->buffer, num_samples, lpcc->auto_corr, coef_order + 1) != LPC_ERROR_OK) {
         return LPC_ERROR_NG;
     }
 
@@ -325,7 +375,8 @@ static LPCError LPC_CalculateCoef(
 /* Levinson-Durbin再帰計算によりLPC係数を求める（倍精度） */
 LPCApiResult LPCCalculator_CalculateLPCCoefficients(
     struct LPCCalculator *lpcc,
-    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order)
+    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
+    LPCWindowType window_type)
 {
     /* 引数チェック */
     if ((data == NULL) || (coef == NULL)) {
@@ -337,8 +388,13 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficients(
         return LPC_APIRESULT_EXCEED_MAX_ORDER;
     }
 
+    /* 入力サンプル数チェック */
+    if (num_samples > lpcc->max_num_buffer_samples) {
+        return LPC_APIRESULT_EXCEED_MAX_NUM_SAMPLES;
+    }
+
     /* 係数計算 */
-    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 
@@ -528,7 +584,7 @@ static LPCError LPCAF_CalculateCoefMatrixAndVector(
 /* 補助関数法による係数計算 */
 static LPCError LPC_CalculateCoefAF(
         struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order,
-        const uint32_t max_num_iteration, const double obj_epsilon)
+        const uint32_t max_num_iteration, const double obj_epsilon, LPCWindowType window_type)
 {
     uint32_t itr, i;
     double *a_vec = lpcc->a_vec;
@@ -538,7 +594,7 @@ static LPCError LPC_CalculateCoefAF(
     LPCError err;
 
     /* 係数をLebinson-Durbin法で初期化 */
-    if ((err = LPC_CalculateCoef(lpcc, data, num_samples, coef_order)) != LPC_ERROR_OK) {
+    if ((err = LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type)) != LPC_ERROR_OK) {
         return err;
     }
     memcpy(a_vec, &lpcc->lpc_coef[1], sizeof(double) * coef_order);
@@ -587,7 +643,7 @@ static LPCError LPC_CalculateCoefAF(
 LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     struct LPCCalculator *lpcc,
     const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
-    uint32_t max_num_iteration)
+    uint32_t max_num_iteration, LPCWindowType window_type)
 {
     /* 引数チェック */
     if ((lpcc == NULL) || (data == NULL) || (coef == NULL)) {
@@ -600,7 +656,7 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoefAF(lpcc, data, num_samples, coef_order, max_num_iteration, 1e-8) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoefAF(lpcc, data, num_samples, coef_order, max_num_iteration, 1e-8, window_type) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 
@@ -760,7 +816,7 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsBurg(
 LPCApiResult LPCCalculator_EstimateCodeLength(
         struct LPCCalculator *lpcc,
         const double *data, uint32_t num_samples, uint32_t bits_per_sample,
-        uint32_t coef_order, double *length_per_sample_bits)
+        uint32_t coef_order, double *length_per_sample_bits, LPCWindowType window_type)
 {
     uint32_t ord;
     double log2_mean_res_power, log2_var_ratio;
@@ -775,7 +831,7 @@ LPCApiResult LPCCalculator_EstimateCodeLength(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 
@@ -816,8 +872,9 @@ LPCApiResult LPCCalculator_EstimateCodeLength(
 
 /* MDL（最小記述長）を計算 */
 LPCApiResult LPCCalculator_CalculateMDL(
-        struct LPCCalculator *lpcc,
-        const double *data, uint32_t num_samples, uint32_t coef_order, double *mdl)
+    struct LPCCalculator *lpcc,
+    const double *data, uint32_t num_samples, uint32_t coef_order, double *mdl,
+    LPCWindowType window_type)
 {
     uint32_t k;
     double tmp;
@@ -828,7 +885,7 @@ LPCApiResult LPCCalculator_CalculateMDL(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 

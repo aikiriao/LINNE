@@ -14,9 +14,12 @@ TEST(LPCCalculatorTest, CreateDestroyHandleTest)
     /* ワークサイズ計算テスト */
     {
         int32_t work_size;
+        struct LPCCalculatorConfig config;
 
         /* 最低限構造体本体よりは大きいはず */
-        work_size = LPCCalculator_CalculateWorkSize(1);
+        config.max_order = 1;
+        config.max_num_samples = 1;
+        work_size = LPCCalculator_CalculateWorkSize(&config);
         ASSERT_TRUE(work_size > sizeof(struct LPCCalculator));
 
         /* 不正なコンフィグ */
@@ -27,12 +30,15 @@ TEST(LPCCalculatorTest, CreateDestroyHandleTest)
     {
         void *work;
         int32_t work_size;
+        struct LPCCalculatorConfig config;
         struct LPCCalculator *lpcc;
 
-        work_size = LPCCalculator_CalculateWorkSize(4);
+        config.max_order = 1;
+        config.max_num_samples = 1;
+        work_size = LPCCalculator_CalculateWorkSize(&config);
         work = malloc(work_size);
 
-        lpcc = LPCCalculator_Create(4, work, work_size);
+        lpcc = LPCCalculator_Create(&config, work, work_size);
         ASSERT_TRUE(lpcc != NULL);
         EXPECT_TRUE(lpcc->work == work);
         EXPECT_EQ(lpcc->alloced_by_own, 0);
@@ -44,8 +50,11 @@ TEST(LPCCalculatorTest, CreateDestroyHandleTest)
     /* 自前確保によるハンドル作成（成功例） */
     {
         struct LPCCalculator *lpcc;
+        struct LPCCalculatorConfig config;
 
-        lpcc = LPCCalculator_Create(4, NULL, 0);
+        config.max_order = 1;
+        config.max_num_samples = 1;
+        lpcc = LPCCalculator_Create(&config, NULL, 0);
         ASSERT_TRUE(lpcc != NULL);
         EXPECT_TRUE(lpcc->work != NULL);
         EXPECT_EQ(lpcc->alloced_by_own, 1);
@@ -58,18 +67,27 @@ TEST(LPCCalculatorTest, CreateDestroyHandleTest)
         void *work;
         int32_t work_size;
         struct LPCCalculator *lpcc;
+        struct LPCCalculatorConfig config;
 
-        work_size = LPCCalculator_CalculateWorkSize(4);
+        config.max_order = 1;
+        config.max_num_samples = 1;
+        work_size = LPCCalculator_CalculateWorkSize(&config);
         work = malloc(work_size);
 
         /* 引数が不正 */
-        lpcc = LPCCalculator_Create(4, NULL, work_size);
+        lpcc = LPCCalculator_Create(NULL,    work, work_size);
         EXPECT_TRUE(lpcc == NULL);
-        lpcc = LPCCalculator_Create(4, work, 0);
+        lpcc = LPCCalculator_Create(&config, NULL, work_size);
+        EXPECT_TRUE(lpcc == NULL);
+        lpcc = LPCCalculator_Create(&config, work, 0);
         EXPECT_TRUE(lpcc == NULL);
 
         /* コンフィグパラメータが不正 */
-        lpcc = LPCCalculator_Create(0, work, work_size);
+        config.max_order = 0; config.max_num_samples = 1;
+        lpcc = LPCCalculator_Create(&config, work, work_size);
+        EXPECT_TRUE(lpcc == NULL);
+        config.max_order = 1; config.max_num_samples = 0;
+        lpcc = LPCCalculator_Create(&config, work, work_size);
         EXPECT_TRUE(lpcc == NULL);
 
         free(work);
@@ -78,9 +96,14 @@ TEST(LPCCalculatorTest, CreateDestroyHandleTest)
     /* 自前確保によるハンドル作成（失敗ケース） */
     {
         struct LPCCalculator *lpcc;
+        struct LPCCalculatorConfig config;
 
         /* コンフィグパラメータが不正 */
-        lpcc = LPCCalculator_Create(0, NULL, 0);
+        config.max_order = 0; config.max_num_samples = 1;
+        lpcc = LPCCalculator_Create(&config, NULL, 0);
+        EXPECT_TRUE(lpcc == NULL);
+        config.max_order = 1; config.max_num_samples = 0;
+        lpcc = LPCCalculator_Create(&config, NULL, 0);
         EXPECT_TRUE(lpcc == NULL);
     }
 }
