@@ -293,8 +293,6 @@ static void LINNENetworkLayer_SearchOptimalNumUnits(
             continue;
         }
 
-        memcpy(layer->din, input, sizeof(double) * num_samples);
-
         /* 各ユニット数における誤差を計算し、ベストなユニット数を探る */
         for (unit = 0; unit < nunits; unit++) {
             uint32_t smpl, k;
@@ -342,8 +340,6 @@ static void LINNENetworkLayer_SetParameter(
     uint32_t i, unit;
     const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
     const uint32_t nsmpls_per_unit = num_samples / layer->num_units;
-
-    memcpy(layer->din, input, sizeof(double) * num_samples);
 
     for (unit = 0; unit < layer->num_units; unit++) {
         const double *pinput = &input[unit * nsmpls_per_unit];
