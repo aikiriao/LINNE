@@ -24,7 +24,7 @@ void LINNECoder_Destroy(struct LINNECoder *coder);
 void LINNECoder_Encode(struct LINNECoder *coder, struct BitStream *stream, const int32_t *data, uint32_t num_samples);
 
 /* 符号付き整数配列の復号 */
-void LINNECoder_Decode(struct LINNECoder *coder, struct BitStream *stream, int32_t *data, uint32_t num_samples);
+void LINNECoder_Decode(struct BitStream *stream, int32_t *data, uint32_t num_samples);
 
 #ifdef __cplusplus
 }

@@ -23,7 +23,6 @@
 /* デコーダハンドル */
 struct LINNEDecoder {
     struct LINNEHeader header; /* ヘッダ */
-    struct LINNECoder *coder; /* 符号化ハンドル */
     uint32_t max_num_channels; /* デコード可能な最大チャンネル数 */
     uint32_t max_num_layers; /* 最大レイヤー数 */
     uint32_t max_num_parameters_per_layer; /* 最大レイヤーあたりパラメータ数 */
@@ -272,15 +271,6 @@ struct LINNEDecoder *LINNEDecoder_Create(const struct LINNEDecoderConfig *config
         LINNEDECODER_SET_STATUS_FLAG(decoder, LINNEDECODER_STATUS_FLAG_CRC16_CHECK);
     }
 
-    /* コーダーハンドルの作成 */
-    {
-        const int32_t coder_size = LINNECoder_CalculateWorkSize();
-        if ((decoder->coder = LINNECoder_Create(work_ptr, coder_size)) == NULL) {
-            return NULL;
-        }
-        work_ptr += coder_size;
-    }
-
     /* デエンファシスフィルタの作成 */
     LINNE_ALLOCATE_2DIMARRAY(decoder->de_emphasis,
             work_ptr, struct LINNEPreemphasisFilter, config->max_num_channels, LINNE_NUM_PREEMPHASIS_FILTERS);
@@ -314,7 +304,6 @@ struct LINNEDecoder *LINNEDecoder_Create(const struct LINNEDecoderConfig *config
 void LINNEDecoder_Destroy(struct LINNEDecoder *decoder)
 {
     if (decoder != NULL) {
-        LINNECoder_Destroy(decoder->coder);
         if (LINNEDECODER_GET_STATUS_FLAG(decoder, LINNEDECODER_STATUS_FLAG_ALLOCED_BY_OWN)) {
             free(decoder->work);
         }
@@ -500,7 +489,7 @@ static LINNEApiResult LINNEDecoder_DecodeCompressData(
 
     /* 残差復号 */
     for (ch = 0; ch < header->num_channels; ch++) {
-        LINNECoder_Decode(decoder->coder, &reader, buffer[ch], num_decode_samples);
+        LINNECoder_Decode(&reader, buffer[ch], num_decode_samples);
     }
 
     /* バイト境界に揃える */

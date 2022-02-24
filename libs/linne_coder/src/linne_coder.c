@@ -10,7 +10,7 @@
 
 /* メモリアラインメント */
 #define LINNECODER_MEMORY_ALIGNMENT 16
-#define LINNECODER_LOG2_MAX_NUM_PARTITIONS 8
+#define LINNECODER_LOG2_MAX_NUM_PARTITIONS 10
 #define LINNECODER_MAX_NUM_PARTITIONS (1 << LINNECODER_LOG2_MAX_NUM_PARTITIONS)
 #define LINNECODER_RICE_PARAMETER_BITS 5
 #define LINNECODER_GAMMA_BITS(uint) (((uint) == 0) ? 1 : ((2 * LINNEUTILITY_LOG2CEIL(uint + 2)) - 1))
@@ -18,6 +18,7 @@
 /* 符号化ハンドル */
 struct LINNECoder {
     uint8_t alloced_by_own;
+    double part_mean[LINNECODER_LOG2_MAX_NUM_PARTITIONS + 1][LINNECODER_MAX_NUM_PARTITIONS];
     void *work;
 };
 
@@ -185,7 +186,7 @@ static void LINNECoder_CalculateOptimalRecursiveRiceParameter(
     /* 平均符号長の計算 */
     fk1 = pow(1.0 - rho, (double)(1 << k1));
     fk2 = pow(1.0 - rho, (double)(1 << k2));
-    bps = (1.0 + k1) * (1.0 - fk1) + (1.0 + k2 + 1.0 / (1.0 - fk2)) * fk1;
+    bps = (1.0 + k1) * (1.0 - fk1) + (1.0 + k2 + (1.0 / (1.0 - fk2))) * fk1;
 
     /* 結果出力 */
     (*optk2) = k2;
@@ -199,11 +200,10 @@ static void LINNECoder_CalculateOptimalRecursiveRiceParameter(
 }
 
 /* 符号付き整数配列の符号化 */
-static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, const int32_t *data, uint32_t num_samples)
+static void LINNECoder_EncodePartitionedRecursiveRice(struct LINNECoder* coder, struct BitStream *stream, const int32_t *data, uint32_t num_samples)
 {
     uint32_t max_porder, max_num_partitions;
     uint32_t porder, part, best_porder;
-    double part_mean[LINNECODER_LOG2_MAX_NUM_PARTITIONS + 1][LINNECODER_MAX_NUM_PARTITIONS];
 
     /* 最大分割数の決定 */
     max_porder = 1;
@@ -218,20 +218,20 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, 
         uint32_t smpl;
         int32_t i;
 
-        /* 最大分割時の平均値 */
+        /* 最も細かい分割時の平均値 */
         for (part = 0; part < max_num_partitions; part++) {
             const uint32_t nsmpl = num_samples / max_num_partitions;
             double part_sum = 0.0;
             for (smpl = 0; smpl < nsmpl; smpl++) {
                 part_sum += LINNEUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]);
             }
-            part_mean[max_porder][part] = part_sum / nsmpl;
+            coder->part_mean[max_porder][part] = part_sum / nsmpl;
         }
 
         /* より大きい分割の平均は、小さい分割の平均をマージして計算 */
         for (i = (int32_t)(max_porder - 1); i >= 0; i--) {
             for (part = 0; part < (1 << i); part++) {
-                part_mean[i][part] = (part_mean[i + 1][2 * part] + part_mean[i + 1][2 * part + 1]) / 2.0;
+                coder->part_mean[i][part] = (coder->part_mean[i + 1][2 * part] + coder->part_mean[i + 1][2 * part + 1]) / 2.0;
             }
         }
     }
@@ -246,7 +246,7 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, 
             double bps;
             double bits = 0.0;
             for (part = 0; part < (1 << porder); part++) {
-                LINNECoder_CalculateOptimalRecursiveRiceParameter(part_mean[porder][part], &k1, &k2, &bps);
+                LINNECoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[porder][part], &k1, &k2, &bps);
                 bits += bps * nsmpl;
                 if (part == 0) {
                     bits += LINNECODER_RICE_PARAMETER_BITS;
@@ -272,7 +272,7 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct BitStream *stream, 
         BitWriter_PutBits(stream, best_porder, LINNECODER_LOG2_MAX_NUM_PARTITIONS);
 
         for (part = 0; part < (1 << best_porder); part++) {
-            LINNECoder_CalculateOptimalRecursiveRiceParameter(part_mean[best_porder][part], &k1, &k2, NULL);
+            LINNECoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[best_porder][part], &k1, &k2, NULL);
             if (part == 0) {
                 BitWriter_PutBits(stream, k2, LINNECODER_RICE_PARAMETER_BITS);
             } else {
@@ -318,13 +318,13 @@ void LINNECoder_Encode(struct LINNECoder *coder, struct BitStream *stream, const
     LINNE_ASSERT((stream != NULL) && (data != NULL) && (coder != NULL));
     LINNE_ASSERT(num_samples != 0);
 
-    LINNECoder_EncodePartitionedRecursiveRice(stream, data, num_samples);
+    LINNECoder_EncodePartitionedRecursiveRice(coder, stream, data, num_samples);
 }
 
 /* 符号付き整数配列の復号 */
-void LINNECoder_Decode(struct LINNECoder *coder, struct BitStream *stream, int32_t *data, uint32_t num_samples)
+void LINNECoder_Decode(struct BitStream *stream, int32_t *data, uint32_t num_samples)
 {
-    LINNE_ASSERT((stream != NULL) && (data != NULL) && (coder != NULL));
+    LINNE_ASSERT((stream != NULL) && (data != NULL));
     LINNE_ASSERT(num_samples != 0);
 
     LINNECoder_DecodePartitionedRecursiveRice(stream, data, num_samples);
