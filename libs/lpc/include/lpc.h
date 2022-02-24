@@ -16,7 +16,8 @@ typedef enum LPCApiResultTag {
 /* 窓関数の種類 */
 typedef enum LPCWindowTypeTag {
     LPC_WINDOWTYPE_RECTANGULAR = 0, /* 矩形窓 */
-    LPC_WINDOWTYPE_SIN              /* サイン窓 */
+    LPC_WINDOWTYPE_SIN,             /* サイン窓 */
+    LPC_WINDOWTYPE_WELCH            /* Welch窓 */
 } LPCWindowType;
 
 /* LPC係数計算ハンドル */

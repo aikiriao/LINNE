@@ -302,7 +302,7 @@ static void LINNENetworkLayer_SearchOptimalNumUnits(
 
             /* 係数計算 */
             ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
-                pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT, LPC_WINDOWTYPE_SIN);
+                pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT, LPC_WINDOWTYPE_WELCH);
             LINNE_ASSERT(ret == LPC_APIRESULT_OK);
 
             /* その場で予測, 平均絶対値誤差を計算 */
@@ -348,7 +348,7 @@ static void LINNENetworkLayer_SetParameter(
 
         /* 係数計算 */
         ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
-            pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION, LPC_WINDOWTYPE_SIN);
+            pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION, LPC_WINDOWTYPE_WELCH);
         LINNE_ASSERT(ret == LPC_APIRESULT_OK);
 
         /* 行列（畳み込み）演算でインデックスが増える方向にしたい都合上、

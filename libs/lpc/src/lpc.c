@@ -193,6 +193,17 @@ static LPCError LPC_ApplyWindow(
             }
         }
         break;
+    case LPC_WINDOWTYPE_WELCH:
+        {
+            uint32_t smpl;
+            const double divisor = 4.0 * pow(num_samples - 1, -2.0);
+            for (smpl = 0; smpl < (num_samples >> 1); smpl++) {
+                const double weight = divisor * smpl * (num_samples - 1 - smpl);
+                output[smpl] = input[smpl] * weight;
+                output[num_samples - smpl - 1] = input[num_samples - smpl - 1] * weight;
+            }
+        }
+        break;
     default:
         return LPC_ERROR_NG;
     }
