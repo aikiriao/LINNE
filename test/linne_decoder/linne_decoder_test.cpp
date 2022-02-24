@@ -245,7 +245,6 @@ TEST(LINNEDecoderTest, CreateDestroyHandleTest)
         EXPECT_TRUE(decoder->work == work);
         EXPECT_FALSE(LINNEDECODER_GET_STATUS_FLAG(decoder, LINNEDECODER_STATUS_FLAG_ALLOCED_BY_OWN));
         EXPECT_FALSE(LINNEDECODER_GET_STATUS_FLAG(decoder, LINNEDECODER_STATUS_FLAG_SET_HEADER));
-        EXPECT_TRUE(decoder->coder != NULL);
         EXPECT_TRUE(decoder->params_int != NULL);
         EXPECT_TRUE(decoder->params_int[0] != NULL);
         EXPECT_TRUE(decoder->params_int[0][0] != NULL);
@@ -270,7 +269,6 @@ TEST(LINNEDecoderTest, CreateDestroyHandleTest)
         EXPECT_TRUE(decoder->work != NULL);
         EXPECT_TRUE(LINNEDECODER_GET_STATUS_FLAG(decoder, LINNEDECODER_STATUS_FLAG_ALLOCED_BY_OWN));
         EXPECT_FALSE(LINNEDECODER_GET_STATUS_FLAG(decoder, LINNEDECODER_STATUS_FLAG_SET_HEADER));
-        EXPECT_TRUE(decoder->coder != NULL);
         EXPECT_TRUE(decoder->params_int != NULL);
         EXPECT_TRUE(decoder->params_int[0] != NULL);
         EXPECT_TRUE(decoder->params_int[0][0] != NULL);
