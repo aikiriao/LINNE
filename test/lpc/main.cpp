@@ -108,6 +108,118 @@ TEST(LPCCalculatorTest, CreateDestroyHandleTest)
     }
 }
 
+/* （テスト用）PARCOR係数をLPC係数に変換 */
+static LPCError LPC_ConvertPARCORtoLPCDouble(
+    struct LPCCalculator* lpcc, const double* parcor_coef, uint32_t coef_order, double *lpc_coef)
+{
+    int32_t i, k;
+    double *a_vec, *tmplpc_coef;
+
+    /* 引数チェック */
+    if ((lpcc == NULL) || (lpc_coef == NULL) || (parcor_coef == NULL)) {
+        return LPC_ERROR_INVALID_ARGUMENT;
+    }
+
+    /* 次数チェック */
+    assert(coef_order <= lpcc->max_order);
+
+    /* 作業領域を割り当て */
+    a_vec = lpcc->a_vec;
+    tmplpc_coef = lpcc->lpc_coef;
+
+    /* PARCOR係数からLPC係数へ逐次的に変換 */
+    tmplpc_coef[0] = 1.0;
+    tmplpc_coef[1] = -parcor_coef[0];
+    for (i = 2; i < coef_order + 1; i++) {
+        for (k = 0; k < i; k++) {
+            a_vec[k] = tmplpc_coef[k];
+        }
+        a_vec[i] = 0.0;
+        for (k = 0; k < i + 1; k++) {
+            tmplpc_coef[k] = a_vec[k] - (parcor_coef[i - 1] * a_vec[i - k]);
+        }
+    }
+
+    memcpy(lpc_coef, &tmplpc_coef[1], sizeof(double) * coef_order);
+
+    return LPC_ERROR_OK;
+}
+
+/* LPC係数をPARCOR係数に変換するテスト */
+TEST(LPCCalculatorTest, LPC_ConvertLPCandPARCORTest)
+{
+    /* LPC->PARCORの簡単な成功例 */
+    {
+#define NUM_SAMPLES 32
+#define COEF_ORDER 16
+        uint32_t i;
+        struct LPCCalculator* lpcc;
+        struct LPCCalculatorConfig config;
+        double data[NUM_SAMPLES], lpc_coef[COEF_ORDER], answer[COEF_ORDER], test[COEF_ORDER];
+
+        config.max_num_samples = NUM_SAMPLES; config.max_order = COEF_ORDER;
+        lpcc = LPCCalculator_Create(&config, NULL, 0);
+
+        ASSERT_TRUE(lpcc != NULL);
+
+        for (i = 0; i < NUM_SAMPLES; i++) {
+            data[i] = sin(0.1 * i);
+        }
+
+        /* 係数計算 */
+        ASSERT_EQ(LPC_APIRESULT_OK,
+            LPCCalculator_CalculateLPCCoefficients(lpcc,
+                data, NUM_SAMPLES, lpc_coef, COEF_ORDER, LPC_WINDOWTYPE_RECTANGULAR));
+        memcpy(answer, &lpcc->parcor_coef[1], sizeof(double) * COEF_ORDER);
+
+        /* LPC->PARCOR変換 */
+        EXPECT_EQ(LPC_ERROR_OK, LPC_ConvertLPCtoPARCORDouble(lpcc, lpc_coef, COEF_ORDER, test));
+
+        /* 一致確認 */
+        for (i = 0; i < COEF_ORDER; i++) {
+            EXPECT_FLOAT_EQ(answer[i], test[i]);
+        }
+
+        LPCCalculator_Destroy(lpcc);
+#undef NUM_SAMPLES
+#undef COEF_ORDER
+    }
+
+    /* PARCOR->LPCの簡単な成功例 */
+    {
+#define NUM_SAMPLES 32
+#define COEF_ORDER 16
+        uint32_t i;
+        struct LPCCalculator* lpcc;
+        struct LPCCalculatorConfig config;
+        double data[NUM_SAMPLES], lpc_coef[COEF_ORDER], answer[COEF_ORDER], test[COEF_ORDER];
+
+        config.max_num_samples = NUM_SAMPLES; config.max_order = COEF_ORDER;
+        lpcc = LPCCalculator_Create(&config, NULL, 0);
+
+        ASSERT_TRUE(lpcc != NULL);
+
+        for (i = 0; i < NUM_SAMPLES; i++) {
+            data[i] = sin(0.1 * i);
+        }
+
+        ASSERT_EQ(LPC_APIRESULT_OK,
+            LPCCalculator_CalculateLPCCoefficients(lpcc,
+                data, NUM_SAMPLES, lpc_coef, COEF_ORDER, LPC_WINDOWTYPE_RECTANGULAR));
+        memcpy(answer, &lpcc->parcor_coef[1], sizeof(double) * COEF_ORDER);
+
+        EXPECT_EQ(LPC_ERROR_OK, LPC_ConvertPARCORtoLPCDouble(lpcc, answer, COEF_ORDER, test));
+
+        for (i = 0; i < COEF_ORDER; i++) {
+            EXPECT_FLOAT_EQ(lpc_coef[i], test[i]);
+        }
+
+        LPCCalculator_Destroy(lpcc);
+#undef NUM_SAMPLES
+#undef COEF_ORDER
+    }
+}
+
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);

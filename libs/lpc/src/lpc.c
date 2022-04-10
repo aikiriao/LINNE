@@ -916,6 +916,76 @@ LPCApiResult LPCCalculator_CalculateMDL(
     return LPC_APIRESULT_OK;
 }
 
+/* LPC係数をPARCOR係数に変換 */
+static LPCError LPC_ConvertLPCtoPARCORDouble(
+    struct LPCCalculator *lpcc, const double *lpc_coef, uint32_t coef_order, double *parcor_coef)
+{
+    int32_t i, k;
+    double *tmplpc_coef, *a_vec;
+
+    /* 引数チェック */
+    if ((lpcc == NULL) || (lpc_coef == NULL) || (parcor_coef == NULL)) {
+        return LPC_ERROR_INVALID_ARGUMENT;
+    }
+
+    /* 次数チェック */
+    assert(coef_order <= lpcc->max_order);
+
+    /* 作業領域を割り当て */
+    tmplpc_coef = lpcc->lpc_coef;
+    a_vec = lpcc->a_vec;
+
+    memcpy(tmplpc_coef, lpc_coef, sizeof(double) * coef_order);
+
+    /* 反射係数に変換 */
+    for (i = coef_order - 1; i >= 0; i--) {
+        parcor_coef[i] = tmplpc_coef[i];
+        for (k = 0; k < i; k++) {
+            a_vec[k] = tmplpc_coef[k];
+        }
+        for (k = 0; k < i; k++) {
+            tmplpc_coef[k] = (a_vec[k] - parcor_coef[i] * a_vec[i - k - 1]) / (1.0 - parcor_coef[i] * parcor_coef[i]);
+        }
+    }
+    /* 反射係数の負号がPARCOR係数 */
+    for (i = 0; i < coef_order; i++) {
+        parcor_coef[i] *= -1.0;
+    }
+
+    return LPC_ERROR_OK;
+}
+
+/* LPC係数をPARCOR係数に変換して量子化 */
+LPCApiResult LPC_QuantizeCoefficientsAsPARCOR(
+    struct LPCCalculator *lpcc,
+    const double *lpc_coef, uint32_t coef_order, uint32_t nbits_precision, int32_t *int_coef)
+{
+    uint32_t ord;
+
+    /* 引数チェック */
+    if ((lpcc == NULL) || (lpc_coef == NULL)
+        || (int_coef == NULL) || (nbits_precision == 0)) {
+        return LPC_APIRESULT_INVALID_ARGUMENT;
+    }
+
+    /* 次数チェック */
+    if (coef_order > lpcc->max_order) {
+        return LPC_APIRESULT_EXCEED_MAX_ORDER;
+    }
+
+    /* PARCOR係数に変換 */
+    if (LPC_ConvertLPCtoPARCORDouble(lpcc, lpc_coef, coef_order, lpcc->parcor_coef) != LPC_ERROR_OK) {
+        return LPC_APIRESULT_NG;
+    }
+
+    /* PARCOR係数を量子化して出力 */
+    for (ord = 0; ord < coef_order; ord++) {
+        int_coef[ord] = (int32_t)LPC_Round(lpcc->parcor_coef[ord] * pow(2.0, (double)nbits_precision - 1));
+    }
+
+    return LPC_APIRESULT_OK;
+}
+
 /* LPC係数の整数量子化 */
 LPCApiResult LPC_QuantizeCoefficients(
     const double *double_coef, uint32_t coef_order, uint32_t nbits_precision,

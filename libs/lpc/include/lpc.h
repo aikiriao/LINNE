@@ -71,6 +71,11 @@ LPCApiResult LPCCalculator_CalculateMDL(
     const double *data, uint32_t num_samples, uint32_t coef_order, double *mdl,
     LPCWindowType window_type);
 
+/* LPC係数をPARCOR係数に変換して量子化する */
+LPCApiResult LPC_QuantizeCoefficientsAsPARCOR(
+    struct LPCCalculator *lpcc,
+    const double *lpc_coef, uint32_t coef_order, uint32_t nbits_precision, int32_t *int_coef);
+
 /* LPC係数の整数量子化 */
 LPCApiResult LPC_QuantizeCoefficients(
     const double *double_coef, uint32_t coef_order, uint32_t nbits_precision,
