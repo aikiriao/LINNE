@@ -937,19 +937,16 @@ static LPCError LPC_ConvertLPCtoPARCORDouble(
 
     memcpy(tmplpc_coef, lpc_coef, sizeof(double) * coef_order);
 
-    /* 反射係数に変換 */
+    /* PARCOR係数に変換 */
     for (i = coef_order - 1; i >= 0; i--) {
-        parcor_coef[i] = tmplpc_coef[i];
+        const double gamma = tmplpc_coef[i];
+        parcor_coef[i] = -gamma;
         for (k = 0; k < i; k++) {
             a_vec[k] = tmplpc_coef[k];
         }
         for (k = 0; k < i; k++) {
-            tmplpc_coef[k] = (a_vec[k] - parcor_coef[i] * a_vec[i - k - 1]) / (1.0 - parcor_coef[i] * parcor_coef[i]);
+            tmplpc_coef[k] = (a_vec[k] - gamma * a_vec[i - k - 1]) / (1.0 - gamma * gamma);
         }
-    }
-    /* 反射係数の負号がPARCOR係数 */
-    for (i = 0; i < coef_order; i++) {
-        parcor_coef[i] *= -1.0;
     }
 
     return LPC_ERROR_OK;
