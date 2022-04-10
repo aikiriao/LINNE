@@ -154,14 +154,13 @@ TEST(LPCCalculatorTest, LPC_ConvertLPCandPARCORTest)
         struct LPCCalculatorConfig config;
         double data[NUM_SAMPLES], lpc_coef[COEF_ORDER], answer[COEF_ORDER], test[COEF_ORDER];
 
-        config.max_num_samples = NUM_SAMPLES; config.max_order = COEF_ORDER;
-        lpcc = LPCCalculator_Create(&config, NULL, 0);
-
-        ASSERT_TRUE(lpcc != NULL);
-
         for (i = 0; i < NUM_SAMPLES; i++) {
             data[i] = sin(0.1 * i);
         }
+
+        config.max_num_samples = NUM_SAMPLES; config.max_order = COEF_ORDER;
+        lpcc = LPCCalculator_Create(&config, NULL, 0);
+        ASSERT_TRUE(lpcc != NULL);
 
         /* 係数計算 */
         ASSERT_EQ(LPC_APIRESULT_OK,
@@ -169,7 +168,10 @@ TEST(LPCCalculatorTest, LPC_ConvertLPCandPARCORTest)
                 data, NUM_SAMPLES, lpc_coef, COEF_ORDER, LPC_WINDOWTYPE_RECTANGULAR));
         memcpy(answer, &lpcc->parcor_coef[1], sizeof(double) * COEF_ORDER);
 
+        LPCCalculator_Destroy(lpcc);
+
         /* LPC->PARCOR変換 */
+        lpcc = LPCCalculator_Create(&config, NULL, 0);
         EXPECT_EQ(LPC_ERROR_OK, LPC_ConvertLPCtoPARCORDouble(lpcc, lpc_coef, COEF_ORDER, test));
 
         /* 一致確認 */
@@ -191,20 +193,23 @@ TEST(LPCCalculatorTest, LPC_ConvertLPCandPARCORTest)
         struct LPCCalculatorConfig config;
         double data[NUM_SAMPLES], lpc_coef[COEF_ORDER], answer[COEF_ORDER], test[COEF_ORDER];
 
-        config.max_num_samples = NUM_SAMPLES; config.max_order = COEF_ORDER;
-        lpcc = LPCCalculator_Create(&config, NULL, 0);
-
-        ASSERT_TRUE(lpcc != NULL);
-
         for (i = 0; i < NUM_SAMPLES; i++) {
             data[i] = sin(0.1 * i);
         }
+
+        config.max_num_samples = NUM_SAMPLES; config.max_order = COEF_ORDER;
+        lpcc = LPCCalculator_Create(&config, NULL, 0);
+        ASSERT_TRUE(lpcc != NULL);
 
         ASSERT_EQ(LPC_APIRESULT_OK,
             LPCCalculator_CalculateLPCCoefficients(lpcc,
                 data, NUM_SAMPLES, lpc_coef, COEF_ORDER, LPC_WINDOWTYPE_RECTANGULAR));
         memcpy(answer, &lpcc->parcor_coef[1], sizeof(double) * COEF_ORDER);
 
+        LPCCalculator_Destroy(lpcc);
+
+        /* PARCOR->LPC変換 */
+        lpcc = LPCCalculator_Create(&config, NULL, 0);
         EXPECT_EQ(LPC_ERROR_OK, LPC_ConvertPARCORtoLPCDouble(lpcc, answer, COEF_ORDER, test));
 
         for (i = 0; i < COEF_ORDER; i++) {
