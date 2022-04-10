@@ -113,7 +113,7 @@ static LPCError LPC_ConvertPARCORtoLPCDouble(
     struct LPCCalculator* lpcc, const double* parcor_coef, uint32_t coef_order, double *lpc_coef)
 {
     int32_t i, k;
-    double *a_vec, *tmplpc_coef;
+    double *a_vec;
 
     /* 引数チェック */
     if ((lpcc == NULL) || (lpc_coef == NULL) || (parcor_coef == NULL)) {
@@ -125,22 +125,19 @@ static LPCError LPC_ConvertPARCORtoLPCDouble(
 
     /* 作業領域を割り当て */
     a_vec = lpcc->a_vec;
-    tmplpc_coef = lpcc->lpc_coef;
 
-    /* PARCOR係数からLPC係数へ逐次的に変換 */
-    tmplpc_coef[0] = 1.0;
-    tmplpc_coef[1] = -parcor_coef[0];
-    for (i = 2; i < coef_order + 1; i++) {
+    /* 再帰計算 */
+    lpc_coef[0] = -parcor_coef[0];
+    for (i = 1; i < coef_order; i++) {
+        const double gamma = -parcor_coef[i];
         for (k = 0; k < i; k++) {
-            a_vec[k] = tmplpc_coef[k];
+            a_vec[k] = lpc_coef[k];
         }
-        a_vec[i] = 0.0;
-        for (k = 0; k < i + 1; k++) {
-            tmplpc_coef[k] = a_vec[k] - (parcor_coef[i - 1] * a_vec[i - k]);
+        for (k = 0; k < i; k++) {
+            lpc_coef[k] = a_vec[k] + (gamma * a_vec[i - k - 1]);
         }
+        lpc_coef[i] = gamma;
     }
-
-    memcpy(lpc_coef, &tmplpc_coef[1], sizeof(double) * coef_order);
 
     return LPC_ERROR_OK;
 }
