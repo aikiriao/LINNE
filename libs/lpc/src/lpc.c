@@ -605,7 +605,7 @@ static LPCError LPC_CalculateCoefAF(
     if ((err = LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type)) != LPC_ERROR_OK) {
         return err;
     }
-    memcpy(a_vec, &lpcc->lpc_coef[1], sizeof(double) * coef_order);
+    memcpy(a_vec, lpcc->lpc_coef, sizeof(double) * coef_order);
 
     /* 0次自己相関（信号の二乗和）が小さい場合
     * => 係数は全て0として無音出力システムを予測 */
