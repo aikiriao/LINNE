@@ -940,6 +940,7 @@ static LPCError LPC_ConvertLPCtoPARCORDouble(
     /* PARCOR係数に変換 */
     for (i = coef_order - 1; i >= 0; i--) {
         const double gamma = tmplpc_coef[i];
+        assert(fabs(gamma) < 1.0);
         parcor_coef[i] = -gamma;
         for (k = 0; k < i; k++) {
             a_vec[k] = tmplpc_coef[k];
@@ -958,6 +959,8 @@ LPCApiResult LPC_QuantizeCoefficientsAsPARCOR(
     const double *lpc_coef, uint32_t coef_order, uint32_t nbits_precision, int32_t *int_coef)
 {
     uint32_t ord;
+    int32_t qtmp;
+    const int32_t qmax = (1 << (nbits_precision - 1));
 
     /* 引数チェック */
     if ((lpcc == NULL) || (lpc_coef == NULL)
@@ -977,7 +980,15 @@ LPCApiResult LPC_QuantizeCoefficientsAsPARCOR(
 
     /* PARCOR係数を量子化して出力 */
     for (ord = 0; ord < coef_order; ord++) {
-        int_coef[ord] = (int32_t)LPC_Round(lpcc->parcor_coef[ord] * pow(2.0, (double)nbits_precision - 1));
+        assert(fabs(lpcc->parcor_coef[ord]) < 1.0);
+        qtmp = (int32_t)LPC_Round(lpcc->parcor_coef[ord] * pow(2.0, nbits_precision - 1));
+        /* 正負境界の丸め込み */
+        if (qtmp >= qmax) {
+            qtmp = qmax - 1;
+        } else if (qtmp < -qmax) {
+            qtmp = -qmax;
+        }
+        int_coef[ord] = qtmp;
     }
 
     return LPC_APIRESULT_OK;
