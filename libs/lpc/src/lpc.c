@@ -267,7 +267,8 @@ static LPCError LPC_CalculateAutoCorrelation(
 }
 
 /* Levinson-Durbin再帰計算 */
-static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, const double *auto_corr, uint32_t coef_order)
+static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
+    const double *auto_corr, uint32_t coef_order, double *lpc_coef, double *parcor_coef)
 {
     uint32_t k, i;
     double gamma; /* 反射係数 */
@@ -277,11 +278,9 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, const do
     double *a_vec = lpcc->a_vec;
     double *u_vec = lpcc->u_vec;
     double *v_vec = lpcc->v_vec;
-    double *coef = lpcc->lpc_coef;
-    double *parcor_coef = lpcc->parcor_coef;
 
     /* 引数チェック */
-    if ((lpcc == NULL) || (coef == NULL) || (auto_corr == NULL)) {
+    if ((lpcc == NULL) || (auto_corr == NULL) || (lpc_coef == NULL) || (parcor_coef == NULL)) {
         return LPC_ERROR_INVALID_ARGUMENT;
     }
 
@@ -289,7 +288,7 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, const do
     * => 係数は全て0として無音出力システムを予測 */
     if (fabs(auto_corr[0]) < FLT_EPSILON) {
         for (i = 0; i < coef_order + 1; i++) {
-            coef[i] = parcor_coef[i] = 0.0;
+            lpc_coef[i] = parcor_coef[i] = 0.0;
         }
         return LPC_ERROR_OK;
     }
@@ -303,8 +302,7 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, const do
     a_vec[0] = 1.0;
     ek = auto_corr[0];
     a_vec[1] = - auto_corr[1] / auto_corr[0];
-    parcor_coef[0] = 0.0;
-    parcor_coef[1] = auto_corr[1] / ek;
+    parcor_coef[0] = auto_corr[1] / ek;
     ek += auto_corr[1] * a_vec[1];
     u_vec[0] = 1.0; u_vec[1] = 0.0;
     v_vec[0] = 0.0; v_vec[1] = 1.0;
@@ -332,13 +330,13 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, const do
             a_vec[i] = u_vec[i] + gamma * v_vec[i];
         }
         /* PARCOR係数は反射係数の符号反転 */
-        parcor_coef[k + 1] = -gamma;
+        parcor_coef[k] = -gamma;
         /* PARCOR係数の絶対値は1未満（収束条件） */
         assert(fabs(gamma) < 1.0);
     }
 
     /* 結果を取得 */
-    memcpy(coef, a_vec, sizeof(double) * (coef_order + 1));
+    memcpy(lpc_coef, &a_vec[1], sizeof(double) * coef_order);
 
     return LPC_ERROR_OK;
 }
@@ -375,7 +373,7 @@ static LPCError LPC_CalculateCoef(
     }
 
     /* 再帰計算を実行 */
-    if (LPC_LevinsonDurbinRecursion(lpcc, lpcc->auto_corr, coef_order) != LPC_ERROR_OK) {
+    if (LPC_LevinsonDurbinRecursion(lpcc, lpcc->auto_corr, coef_order, lpcc->lpc_coef, lpcc->parcor_coef) != LPC_ERROR_OK) {
         return LPC_ERROR_NG;
     }
 
@@ -385,11 +383,11 @@ static LPCError LPC_CalculateCoef(
 /* Levinson-Durbin再帰計算によりLPC係数を求める（倍精度） */
 LPCApiResult LPCCalculator_CalculateLPCCoefficients(
     struct LPCCalculator *lpcc,
-    const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
+    const double *data, uint32_t num_samples, double *lpc_coef, uint32_t coef_order,
     LPCWindowType window_type)
 {
     /* 引数チェック */
-    if ((data == NULL) || (coef == NULL)) {
+    if ((data == NULL) || (lpc_coef == NULL)) {
         return LPC_APIRESULT_INVALID_ARGUMENT;
     }
 
@@ -410,7 +408,7 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficients(
 
     /* 計算成功時は結果をコピー */
     /* 先頭要素は必ず1.0なので2要素目からコピー */
-    memmove(coef, &lpcc->lpc_coef[1], sizeof(double) * coef_order);
+    memmove(lpc_coef, lpcc->lpc_coef, sizeof(double) * coef_order);
 
     return LPC_APIRESULT_OK;
 }
