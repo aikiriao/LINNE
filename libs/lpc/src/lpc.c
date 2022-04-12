@@ -267,7 +267,7 @@ static LPCError LPC_CalculateAutoCorrelation(
 }
 
 /* Levinson-Durbin再帰計算 */
-static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, uint32_t coef_order)
+static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, const double *auto_corr, uint32_t coef_order)
 {
     uint32_t k, i;
     double gamma; /* 反射係数 */
@@ -279,7 +279,6 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc, uint32_t
     double *v_vec = lpcc->v_vec;
     double *coef = lpcc->lpc_coef;
     double *parcor_coef = lpcc->parcor_coef;
-    const double *auto_corr = lpcc->auto_corr;
 
     /* 引数チェック */
     if ((lpcc == NULL) || (coef == NULL) || (auto_corr == NULL)) {
@@ -376,7 +375,7 @@ static LPCError LPC_CalculateCoef(
     }
 
     /* 再帰計算を実行 */
-    if (LPC_LevinsonDurbinRecursion(lpcc, coef_order) != LPC_ERROR_OK) {
+    if (LPC_LevinsonDurbinRecursion(lpcc, lpcc->auto_corr, coef_order) != LPC_ERROR_OK) {
         return LPC_ERROR_NG;
     }
 
