@@ -305,16 +305,24 @@ static void LINNENetworkLayer_SearchOptimalNumUnits(
                 pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT, LPC_WINDOWTYPE_WELCH);
             LINNE_ASSERT(ret == LPC_APIRESULT_OK);
 
+            /* 行列（畳み込み）演算でインデックスが増える方向にしたい都合上、
+            * パラメータ順序を反転 */
+            for (k = 0; k < nparams_per_unit / 2; k++) {
+                double tmp = pparams[k];
+                pparams[k] = pparams[nparams_per_unit - k - 1];
+                pparams[nparams_per_unit - k - 1] = tmp;
+            }
+
             /* その場で予測, 平均絶対値誤差を計算 */
             for (smpl = 0; smpl < nsmpls_per_unit; smpl++) {
                 double residual = pinput[smpl];
                 if (smpl < nparams_per_unit) {
                     for (k = 0; k < smpl; k++) {
-                        residual += pparams[k] * pinput[smpl - k - 1];
+                        residual += pparams[nparams_per_unit - smpl + k] * pinput[k];
                     }
                 } else {
                     for (k = 0; k < nparams_per_unit; k++) {
-                        residual += pparams[k] * pinput[smpl - k - 1];
+                        residual += pparams[k] * pinput[smpl - nparams_per_unit + k];
                     }
                 }
                 mean_loss += fabs(residual);
