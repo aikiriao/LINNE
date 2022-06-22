@@ -325,7 +325,7 @@ static void LINNENetworkLayer_SearchOptimalNumUnits(
                         residual += pparams[k] * pinput[smpl - nparams_per_unit + k];
                     }
                 }
-                mean_loss += fabs(residual);
+                mean_loss += LINNEUTILITY_ABS(residual);
             }
         }
         mean_loss /= num_samples;
