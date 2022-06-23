@@ -216,6 +216,7 @@ static LPCError LPC_CalculateAutoCorrelation(
     const double *data, uint32_t num_samples, double *auto_corr, uint32_t order)
 {
     uint32_t i, lag;
+    double tmp;
 
     assert(num_samples >= order);
 
@@ -224,43 +225,24 @@ static LPCError LPC_CalculateAutoCorrelation(
         return LPC_ERROR_INVALID_ARGUMENT;
     }
 
-    /* 自己相関初期化 */
-    for (i = 0; i < order; i++) {
-        auto_corr[i] = 0.0;
+    /* 係数初期化 */
+    for (lag = 0; lag < order; lag++) {
+        auto_corr[lag] = 0.0;
     }
 
-    /* 0次は係数は単純計算 */
-    for (i = 0; i < num_samples; i++) {
-        auto_corr[0] += data[i] * data[i];
+    /* 次数の代わりにデータ側のラグに注目した自己相関係数計算 */
+    for (i = 0; i <= num_samples - order; i++) {
+        tmp = data[i];
+        /* 同じラグを持ったデータ積和を取る */
+        for (lag = 0; lag < order; lag++) {
+            auto_corr[lag] += tmp * data[i + lag];
+        }
     }
-
-    /* 1次以降の係数 */
-    for (lag = 1; lag < order; lag++) {
-        uint32_t l, L;
-        uint32_t Llag2;
-        const uint32_t lag2 = lag << 1;
-
-        /* 被乗数が重複している連続した項の集まりの数 */
-        if ((3 * lag) < num_samples) {
-            L = 1 + (num_samples - (3 * lag)) / lag2;
-        } else {
-            L = 0;
+    for (; i < num_samples; i++) {
+        tmp = data[i];
+        for (lag = 0; lag < num_samples - i; lag++) {
+            auto_corr[lag] += tmp * data[i + lag];
         }
-        Llag2 = L * lag2;
-
-        /* 被乗数が重複している分を積和 */
-        for (i = 0; i < lag; i++) {
-            for (l = 0; l < Llag2; l += lag2) {
-                /* 一般的に lag < L なので、ループはこの順 */
-                auto_corr[lag] += data[l + lag + i] * (data[l + i] + data[l + lag2 + i]);
-            }
-        }
-
-        /* 残りの項を単純に積和 */
-        for (i = 0; i < (num_samples - Llag2 - lag); i++) {
-            auto_corr[lag] += data[Llag2 + lag + i] * data[Llag2 + i];
-        }
-
     }
 
     return LPC_ERROR_OK;
