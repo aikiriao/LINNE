@@ -127,7 +127,7 @@ TEST_FILE_DIRECTORY_DICT = {
     "popular": [
         './data/RWC Music Database Sub-Working Group - Rwc-Mdb-P-2001-M*/**/*.wav'
         ],
-     "right": [
+    "right": [
         './data/RWC Music Database Sub-Working Group - Rwc-Mdb-R-2001-M*/**/*.wav'
         ],
     }
