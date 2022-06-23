@@ -337,7 +337,7 @@ LINNEApiResult LINNEDecoder_SetHeader(
             return LINNE_APIRESULT_INSUFFICIENT_BUFFER;
         }
         for (i = 0; i < preset->num_layers; i++) {
-            if (decoder->max_num_parameters_per_layer < preset->num_params_list[i]) {
+            if (decoder->max_num_parameters_per_layer < preset->layer_num_params_list[i]) {
                 return LINNE_APIRESULT_INSUFFICIENT_BUFFER;
             }
         }
@@ -480,7 +480,7 @@ static LINNEApiResult LINNEDecoder_DecodeCompressData(
             BitReader_GetBits(&reader, &uval, LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
             decoder->rshifts[ch][l] = (uint32_t)(LINNE_LPC_COEFFICIENT_BITWIDTH - LINNEUTILITY_UINT32_TO_SINT32(uval));
             /* LPC係数 */
-            for (i = 0; i < decoder->parameter_preset->num_params_list[l]; i++) {
+            for (i = 0; i < decoder->parameter_preset->layer_num_params_list[l]; i++) {
                 BitReader_GetBits(&reader, &uval, LINNE_LPC_COEFFICIENT_BITWIDTH);
                 decoder->params_int[ch][l][i] = LINNEUTILITY_UINT32_TO_SINT32(uval);
             }
@@ -507,7 +507,7 @@ static LINNEApiResult LINNEDecoder_DecodeCompressData(
         for (l = (int32_t)decoder->parameter_preset->num_layers - 1; l >= 0; l--) {
             uint32_t u;
             const uint32_t nunits = decoder->num_units[ch][l];
-            const uint32_t nparams_per_unit = decoder->parameter_preset->num_params_list[l] / nunits;
+            const uint32_t nparams_per_unit = decoder->parameter_preset->layer_num_params_list[l] / nunits;
             const uint32_t nsmpls_per_unit = num_decode_samples / nunits;
             const uint32_t rshift = decoder->rshifts[ch][l];
             for (u = 0; u < nunits; u++) {

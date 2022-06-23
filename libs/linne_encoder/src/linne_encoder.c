@@ -22,6 +22,7 @@ struct LINNEEncoder {
     uint32_t max_num_parameters_per_layer; /* 最大レイヤーあたりパラメータ数 */
     uint8_t set_parameter; /* パラメータセット済み？ */
     uint8_t enable_learning; /* ネットワークの学習を行う？ */
+    uint8_t num_afmethod_iterations; /* 補助関数法の繰り返し回数(0で実行しない) */
     struct LINNEPreemphasisFilter **pre_emphasis; /* プリエンファシスフィルタ */
     int32_t **pre_emphasis_prev; /* プリエンファシスフィルタの直前のサンプル */
     struct LINNENetwork *network; /* ネットワーク */
@@ -172,7 +173,7 @@ static LINNEError LINNEEncoder_ConvertParameterToHeader(
         const struct LINNEParameterPreset *preset = &g_linne_parameter_preset[parameter->preset];
         for (l = 0; l < preset->num_layers; l++) {
             /* 1サンプル遅れの畳込みを行うため、サンプル数はパラメータ数よりも大きいことを要求 */
-            if (parameter->num_samples_per_block <= preset->num_params_list[l]) {
+            if (parameter->num_samples_per_block <= preset->layer_num_params_list[l]) {
                 return LINNE_ERROR_INVALID_FORMAT;
             }
         }
@@ -434,7 +435,7 @@ LINNEApiResult LINNEEncoder_SetEncodeParameter(
             return LINNE_APIRESULT_INSUFFICIENT_BUFFER;
         }
         for (i = 0; i < preset->num_layers; i++) {
-            if (encoder->max_num_parameters_per_layer < preset->num_params_list[i]) {
+            if (encoder->max_num_parameters_per_layer < preset->layer_num_params_list[i]) {
                 return LINNE_APIRESULT_INSUFFICIENT_BUFFER;
             }
         }
@@ -450,10 +451,13 @@ LINNEApiResult LINNEEncoder_SetEncodeParameter(
     /* LPCネットのパラメータ設定 */
     LINNENetwork_SetLayerStructure(encoder->network,
             parameter->num_samples_per_block,
-            encoder->parameter_preset->num_layers, encoder->parameter_preset->num_params_list);
+            encoder->parameter_preset->num_layers, encoder->parameter_preset->layer_num_params_list);
 
     /* 学習を行うかのフラグを立てる */
     encoder->enable_learning = parameter->enable_learning;
+
+    /* 補助関数法の繰り返し回数をセット */
+    encoder->num_afmethod_iterations = parameter->num_afmethod_iterations;
 
     /* パラメータ設定済みフラグを立てる */
     encoder->set_parameter = 1;
@@ -629,8 +633,8 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
     {
         uint32_t max_num_parameters_per_layer = 0;
         for (l = 0; l < encoder->parameter_preset->num_layers; l++) {
-            if (max_num_parameters_per_layer < encoder->parameter_preset->num_params_list[l]) {
-                max_num_parameters_per_layer = encoder->parameter_preset->num_params_list[l];
+            if (max_num_parameters_per_layer < encoder->parameter_preset->layer_num_params_list[l]) {
+                max_num_parameters_per_layer = encoder->parameter_preset->layer_num_params_list[l];
             }
         }
         /* ユニット数で割り切れるように、分析サンプル数はユニット分割数の倍数に切り上げ */
@@ -647,7 +651,9 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
             encoder->buffer_double[smpl] = encoder->buffer_int[ch][smpl] * pow(2.0, -(int32_t)(header->bits_per_sample - 1));
         }
         /* ユニット数とパラメータ設定 */
-        LINNENetwork_SetUnitsAndParameters(encoder->network, encoder->buffer_double, num_analyze_samples);
+        LINNENetwork_SetUnitsAndParameters(encoder->network,
+            encoder->buffer_double, num_analyze_samples,
+            encoder->num_afmethod_iterations, encoder->parameter_preset->regular_terms_list, encoder->parameter_preset->num_regular_terms);
         /* ネットワーク学習 */
         if (encoder->enable_learning != 0) {
             LINNENetworkTrainer_Train(encoder->trainer,
@@ -661,7 +667,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
         LINNENetwork_GetParameters(encoder->network, encoder->params_double[ch], encoder->max_num_layers, encoder->max_num_parameters_per_layer);
         for (l = 0; l < encoder->parameter_preset->num_layers; l++) {
             LPC_QuantizeCoefficients(encoder->params_double[ch][l],
-                    encoder->parameter_preset->num_params_list[l], LINNE_LPC_COEFFICIENT_BITWIDTH,
+                    encoder->parameter_preset->layer_num_params_list[l], LINNE_LPC_COEFFICIENT_BITWIDTH,
                     encoder->params_int[ch][l], &encoder->rshifts[ch][l]);
         }
     }
@@ -672,7 +678,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
         for (l = 0; l < encoder->parameter_preset->num_layers; l++) {
             uint32_t i;
             const uint32_t nunits = encoder->num_units[ch][l];
-            const uint32_t nparams_per_unit = encoder->parameter_preset->num_params_list[l] / nunits;
+            const uint32_t nparams_per_unit = encoder->parameter_preset->layer_num_params_list[l] / nunits;
             /* 補足: num_samplesはnunitsで割り切れなくてもよい 剰余分の末尾サンプルは予測しない */
             const uint32_t nsmpls_per_unit = num_samples / nunits;
             for (i = 0; i < nunits; i++) {
@@ -719,7 +725,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
             LINNE_ASSERT(uval < (1 << LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
             BitWriter_PutBits(&writer, uval, LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
             /* LPC係数 */
-            for (i = 0; i < encoder->parameter_preset->num_params_list[l]; i++) {
+            for (i = 0; i < encoder->parameter_preset->layer_num_params_list[l]; i++) {
                 uval = LINNEUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][l][i]);
                 LINNE_ASSERT(uval < (1 << LINNE_LPC_COEFFICIENT_BITWIDTH));
                 BitWriter_PutBits(&writer, uval, LINNE_LPC_COEFFICIENT_BITWIDTH);

@@ -22,12 +22,12 @@ typedef enum CommandLineParserBoolTag {
 } CommandLineParserBool;
 
 /* コマンドラインパーサ仕様 */
-/* 補足）コマンドラインパーサ仕様の配列の最後の要素の短いオプションに0を指定して下さい */
+/* 補足）コマンドラインパーサ仕様の配列の最後の要素の短いオプションに0, 長いオプションにNULLを指定して下さい */
 struct CommandLineParserSpecification {
     char 				          short_option;		  /* [in] 短いオプション文字列        */
     const char* 		      long_option;		  /* [in] 長いオプション文字列        */
-    CommandLineParserBool	need_argument;		/* [in] オプションに引数は必要か？  */
     const char* 		      description;		  /* [in] 引数の説明                  */
+    CommandLineParserBool	need_argument;		/* [in] オプションに引数は必要か？  */
     const char*				    argument_string;	/* [in,out] 得られた文字列          */
     CommandLineParserBool	acquired;		      /* [out] オプションが指定されたか？ */
 };

@@ -13,32 +13,29 @@
 
 /* コマンドライン仕様 */
 static struct CommandLineParserSpecification command_line_spec[] = {
-    { 'e', "encode", COMMAND_LINE_PARSER_FALSE,
-        "Encode mode",
-        NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'd', "decode", COMMAND_LINE_PARSER_FALSE,
-        "Decode mode",
-        NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'm', "mode", COMMAND_LINE_PARSER_TRUE,
-        "Specify compress mode: 0(fast), ..., 3(high compression) default:0",
-        NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'l', "enable-learning", COMMAND_LINE_PARSER_FALSE,
-        "Whether to learning at encoding (default:no)",
-        NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'c', "no-crc-check", COMMAND_LINE_PARSER_FALSE,
-        "Whether to NOT check CRC16 at decoding (default:no)",
-        NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'h', "help", COMMAND_LINE_PARSER_FALSE,
-        "Show command help message",
-        NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'v', "version", COMMAND_LINE_PARSER_FALSE,
-        "Show version information",
-        NULL, COMMAND_LINE_PARSER_FALSE },
-    { 0, }
+    { 'e', "encode", "Encode mode",
+        COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
+    { 'd', "decode", "Decode mode",
+        COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
+    { 'm', "mode", "Specify compress mode: 0(fast), ..., 3(high compression) default:0",
+        COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
+    { 'l', "enable-learning", "Whether to learning at encoding (default:no)",
+        COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
+    { 'a', "auxiliary-function-iteration", "Specify auxiliary function method iteration count (default:0)",
+        COMMAND_LINE_PARSER_TRUE, "0", COMMAND_LINE_PARSER_FALSE },
+    { 'c', "no-crc-check", "Whether to NOT check CRC16 at decoding (default:no)",
+        COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
+    { 'h', "help", "Show command help message",
+        COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
+    { 'v', "version", "Show version information",
+        COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
+    { 0, NULL,  }
 };
 
 /* エンコード 成功時は0、失敗時は0以外を返す */
-static int do_encode(const char* in_filename, const char* out_filename, uint32_t encode_preset_no, uint8_t enable_learning)
+static int do_encode(
+    const char* in_filename, const char* out_filename,
+    uint32_t encode_preset_no, uint8_t enable_learning, uint8_t num_afmethod_iterations)
 {
     FILE *out_fp;
     struct WAVFile *in_wav;
@@ -78,7 +75,8 @@ static int do_encode(const char* in_filename, const char* out_filename, uint32_t
     parameter.num_samples_per_block = 5 * 2048;
     parameter.ch_process_method = LINNE_CH_PROCESS_METHOD_MS;
     parameter.preset = (uint8_t)encode_preset_no;
-    parameter.enable_learning = (uint8_t)enable_learning;
+    parameter.enable_learning = enable_learning;
+    parameter.num_afmethod_iterations = num_afmethod_iterations;
     /* 2ch未満の信号にはMS処理できないので無効に */
     if (num_channels < 2) {
         parameter.ch_process_method = LINNE_CH_PROCESS_METHOD_NONE;
@@ -350,6 +348,7 @@ int main(int argc, char** argv)
         /* エンコード */
         uint32_t encode_preset_no = 0;
         uint8_t enable_learning = 0;
+        uint8_t num_afmethod_iterations = 0;
         /* エンコードプリセット番号取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "mode") == COMMAND_LINE_PARSER_TRUE) {
             encode_preset_no = (uint32_t)strtol(CommandLineParser_GetArgumentString(command_line_spec, "mode"), NULL, 10);
@@ -362,8 +361,16 @@ int main(int argc, char** argv)
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "enable-learning") == COMMAND_LINE_PARSER_TRUE) {
             enable_learning = 1;
         }
+        /* 補助関数法の繰り返し回数を取得 */
+        if (CommandLineParser_GetOptionAcquired(command_line_spec, "auxiliary-function-iteration") == COMMAND_LINE_PARSER_TRUE) {
+            num_afmethod_iterations = (uint8_t)strtol(CommandLineParser_GetArgumentString(command_line_spec, "auxiliary-function-iteration"), NULL, 10);
+            if (num_afmethod_iterations >= UINT8_MAX) {
+                fprintf(stderr, "%s: auxiliary function iteration count is out of range. \n", argv[0]);
+                return 1;
+            }
+        }
         /* 一括エンコード実行 */
-        if (do_encode(input_file, output_file, encode_preset_no, enable_learning) != 0) {
+        if (do_encode(input_file, output_file, encode_preset_no, enable_learning, num_afmethod_iterations) != 0) {
             fprintf(stderr, "%s: failed to encode %s. \n", argv[0], input_file);
             return 1;
         }

@@ -14,7 +14,7 @@ static uint32_t CommandLineParser_GetNumSpecifications(
 
     /* リスト終端の0にぶつかるまでポインタを進める */
     num_specs = 0;
-    while (clps->short_option != 0) {
+    while ((clps->short_option != 0) || (clps->long_option != NULL)) {
         num_specs++;
         clps++;
     }

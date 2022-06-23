@@ -7,7 +7,7 @@
 #define LINNE_FORMAT_VERSION        1
 
 /* コーデックバージョン */
-#define LINNE_CODEC_VERSION         1
+#define LINNE_CODEC_VERSION         2
 
 /* ヘッダサイズ */
 #define LINNE_HEADER_SIZE           30
@@ -16,7 +16,7 @@
 #define LINNE_MAX_NUM_CHANNELS      8
 
 /* パラメータプリセット数 */
-#define LINNE_NUM_PARAMETER_PRESETS 4
+#define LINNE_NUM_PARAMETER_PRESETS 8
 
 /* API結果型 */
 typedef enum LINNEApiResultTag {

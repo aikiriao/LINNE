@@ -267,12 +267,11 @@ static void LINNENetworkLayer_Backward(
 static void LINNENetworkLayer_SearchOptimalNumUnits(
         struct LINNENetworkLayer *layer, struct LPCCalculator *lpcc,
         const double *input, uint32_t num_samples, const uint32_t max_num_units,
-        uint32_t *best_num_units)
+        double regular_term, uint32_t *best_num_units)
 {
     uint32_t unit, nunits;
     double min_loss = FLT_MAX;
     uint32_t tmp_best_nunits = 0;
-    double params_buffer[LINNE_NETWORK_MAX_PARAMS_PER_LAYER];
 
     LINNE_ASSERT(layer != NULL);
     LINNE_ASSERT(lpcc != NULL);
@@ -285,7 +284,7 @@ static void LINNENetworkLayer_SearchOptimalNumUnits(
         const uint32_t nparams_per_unit = layer->num_params / nunits;
         const uint32_t nsmpls_per_unit = num_samples / nunits;
         double mean_loss = 0.0f;
-        LINNE_ASSERT(LINNE_NETWORK_MAX_PARAMS_PER_LAYER >= nparams_per_unit);
+        LINNE_ASSERT(layer->num_params >= nparams_per_unit);
 
         /* ユニット数で分割できない場合はスキップ */
         if (((layer->num_params % nunits) != 0)
@@ -297,12 +296,13 @@ static void LINNENetworkLayer_SearchOptimalNumUnits(
         for (unit = 0; unit < nunits; unit++) {
             uint32_t smpl, k;
             const double *pinput = &input[unit * nsmpls_per_unit];
-            double *pparams = &params_buffer[unit * nparams_per_unit];
+            double *pparams = &layer->params[unit * nparams_per_unit];
             LPCApiResult ret;
 
             /* 係数計算 */
             ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
-                pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT, LPC_WINDOWTYPE_WELCH);
+                pinput, nsmpls_per_unit, pparams, nparams_per_unit,
+                LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT, LPC_WINDOWTYPE_WELCH, regular_term);
             LINNE_ASSERT(ret == LPC_APIRESULT_OK);
 
             /* 行列（畳み込み）演算でインデックスが増える方向にしたい都合上、
@@ -343,7 +343,7 @@ static void LINNENetworkLayer_SearchOptimalNumUnits(
 /* パラメータの設定 */
 static void LINNENetworkLayer_SetParameter(
     struct LINNENetworkLayer *layer, struct LPCCalculator *lpcc,
-    const double *input, uint32_t num_samples)
+    const double *input, uint32_t num_samples, uint32_t num_af_iterations, double regular_term)
 {
     uint32_t i, unit;
     const uint32_t nparams_per_unit = layer->num_params / layer->num_units;
@@ -356,7 +356,7 @@ static void LINNENetworkLayer_SetParameter(
 
         /* 係数計算 */
         ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
-            pinput, nsmpls_per_unit, pparams, nparams_per_unit, LINNE_NUM_AF_METHOD_ITERATION, LPC_WINDOWTYPE_WELCH);
+            pinput, nsmpls_per_unit, pparams, nparams_per_unit, num_af_iterations, LPC_WINDOWTYPE_WELCH, regular_term);
         LINNE_ASSERT(ret == LPC_APIRESULT_OK);
 
         /* 行列（畳み込み）演算でインデックスが増える方向にしたい都合上、
@@ -572,16 +572,12 @@ static double LINNENetwork_CalculateGradient(
     return loss;
 }
 
-/* Levinson-Durbin法に基づく最適なユニット数とパラメータの設定 */
-void LINNENetwork_SetUnitsAndParameters(
-        struct LINNENetwork *net, const double *input, uint32_t num_samples)
+/* 最適なユニット数の探索と設定 ロス計算を含む */
+static double LINNENetwork_SearchSetUnitsAndParameters(
+    struct LINNENetwork *net, const double *input, uint32_t num_samples, uint32_t num_af_iterations, double regular_term)
 {
     int32_t l;
     const uint32_t max_num_units = 1UL << ((1UL << LINNE_LOG2_NUM_UNITS_BITWIDTH) - 1);
-
-    LINNE_ASSERT(net != NULL);
-    LINNE_ASSERT(input != NULL);
-    LINNE_ASSERT(num_samples <= net->num_samples);
 
     memcpy(net->data_buffer, input, sizeof(double) * num_samples);
     for (l = 0; l < net->num_layers; l++) {
@@ -589,11 +585,42 @@ void LINNENetwork_SetUnitsAndParameters(
         struct LINNENetworkLayer* layer = net->layers[l];
         LINNENetworkLayer_SearchOptimalNumUnits(
             layer, net->lpcc, net->data_buffer, num_samples,
-            LINNEUTILITY_MIN(max_num_units, layer->num_params), &best_num_units);
+            LINNEUTILITY_MIN(max_num_units, layer->num_params), regular_term, &best_num_units);
         layer->num_units = best_num_units;
-        LINNENetworkLayer_SetParameter(layer, net->lpcc, net->data_buffer, num_samples);
+        LINNENetworkLayer_SetParameter(layer, net->lpcc, net->data_buffer, num_samples,
+            num_af_iterations, regular_term);
         LINNENetworkLayer_Forward(layer, net->data_buffer, num_samples);
     }
+
+    return LINNEL1Norm_Loss(net->data_buffer, num_samples);
+}
+
+/* Levinson-Durbin法に基づく最適なユニット数・パラメータの設定 */
+void LINNENetwork_SetUnitsAndParameters(
+        struct LINNENetwork *net, const double *input, uint32_t num_samples,
+        uint32_t num_afmethod_iterations, const double *regular_term_list, uint32_t regular_term_list_size)
+{
+    int32_t i, l, best_i;
+    double min_loss;
+
+    LINNE_ASSERT(net != NULL);
+    LINNE_ASSERT(input != NULL);
+    LINNE_ASSERT(regular_term_list != NULL);
+    LINNE_ASSERT(regular_term_list_size > 0);
+    LINNE_ASSERT(num_samples <= net->num_samples);
+
+    min_loss = FLT_MAX;
+    for (i = 0; i < regular_term_list_size; i++) {
+        double loss = LINNENetwork_SearchSetUnitsAndParameters(net,
+            input, num_samples, LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT, regular_term_list[i]);
+        if (loss < min_loss) {
+            min_loss = loss;
+            best_i = i;
+        }
+    }
+
+    (void)LINNENetwork_SearchSetUnitsAndParameters(net,
+        input, num_samples, num_afmethod_iterations, regular_term_list[best_i]);
 }
 
 /* パラメータのクリア */

@@ -165,7 +165,7 @@ TEST(LPCCalculatorTest, LPC_ConvertLPCandPARCORTest)
         /* 係数計算 */
         ASSERT_EQ(LPC_APIRESULT_OK,
             LPCCalculator_CalculateLPCCoefficients(lpcc,
-                data, NUM_SAMPLES, lpc_coef, COEF_ORDER, LPC_WINDOWTYPE_RECTANGULAR));
+                data, NUM_SAMPLES, lpc_coef, COEF_ORDER, LPC_WINDOWTYPE_RECTANGULAR, 0.0));
         memcpy(answer, lpcc->parcor_coef, sizeof(double) * COEF_ORDER);
 
         LPCCalculator_Destroy(lpcc);
@@ -203,7 +203,7 @@ TEST(LPCCalculatorTest, LPC_ConvertLPCandPARCORTest)
 
         ASSERT_EQ(LPC_APIRESULT_OK,
             LPCCalculator_CalculateLPCCoefficients(lpcc,
-                data, NUM_SAMPLES, lpc_coef, COEF_ORDER, LPC_WINDOWTYPE_RECTANGULAR));
+                data, NUM_SAMPLES, lpc_coef, COEF_ORDER, LPC_WINDOWTYPE_RECTANGULAR, 0.0));
         memcpy(answer, lpcc->parcor_coef, sizeof(double) * COEF_ORDER);
 
         LPCCalculator_Destroy(lpcc);

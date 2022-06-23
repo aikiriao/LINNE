@@ -34,7 +34,8 @@ double LINNENetwork_CalculateLoss(
 
 /* 最適なユニット数とパラメータの設定 */
 void LINNENetwork_SetUnitsAndParameters(
-        struct LINNENetwork *net, const double *input, uint32_t num_samples);
+        struct LINNENetwork *net, const double *input, uint32_t num_samples,
+        uint32_t num_afmethod_iterations, const double *regular_term_list, uint32_t regular_term_list_size);
 
 /* パラメータのクリア */
 void LINNENetwork_ResetParameters(struct LINNENetwork *net);

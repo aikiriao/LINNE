@@ -13,6 +13,7 @@ struct LINNEEncodeParameter {
     uint8_t preset; /* エンコードパラメータプリセット */
     LINNEChannelProcessMethod ch_process_method;  /* マルチチャンネル処理法 */
     uint8_t enable_learning; /* ネットワークの学習を行うか？ */
+    uint8_t num_afmethod_iterations; /* 補助関数法の繰り返し回数(0で実行しない) */
 };
 
 /* エンコーダコンフィグ */

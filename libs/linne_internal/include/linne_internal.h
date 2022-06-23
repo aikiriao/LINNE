@@ -24,10 +24,6 @@
 #define LINNE_ESTIMATED_CODELENGTH_THRESHOLD 0.95f
 /* ユニット数決定時の補助関数法の繰り返し回数（0は初期値のまま） */
 #define LINNE_NUM_AF_METHOD_ITERATION_DETERMINEUNIT 0
-/* パラメータ設定時の補助関数法の繰り返し回数（0は初期値のまま） */
-#define LINNE_NUM_AF_METHOD_ITERATION 2
-/* レイヤーあたり最大パラメータ数 */
-#define LINNE_NETWORK_MAX_PARAMS_PER_LAYER 128
 /* 学習パラメータ */
 /* 最大繰り返し回数 */
 #define LINNE_TRAINING_PARAMETER_MAX_NUM_ITRATION 2000
@@ -35,6 +31,8 @@
 #define LINNE_TRAINING_PARAMETER_LEARNING_RATE 0.1f
 /* ロスが変化しなくなったと判定する閾値 */
 #define LINNE_TRAINING_PARAMETER_LOSS_EPSILON 1.0e-7
+/* 正則化パラメータ配列サイズ */
+#define LINNE_REGULARIZATION_PARAMETER_LIST_SIZE 4
 
 /* アサートマクロ */
 #ifdef NDEBUG
@@ -69,7 +67,9 @@ typedef enum LINNEErrorTag {
 /* パラメータプリセット */
 struct LINNEParameterPreset {
     uint32_t num_layers;
-    const uint32_t *num_params_list;
+    const uint32_t *layer_num_params_list;
+    uint32_t num_regular_terms;
+    const double* regular_terms_list;
 };
 
 #ifdef __cplusplus

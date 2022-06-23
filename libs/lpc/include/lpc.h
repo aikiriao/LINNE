@@ -46,13 +46,13 @@ void LPCCalculator_Destroy(struct LPCCalculator *lpcc);
 LPCApiResult LPCCalculator_CalculateLPCCoefficients(
     struct LPCCalculator *lpcc,
     const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
-    LPCWindowType window_type);
+    LPCWindowType window_type, double regular_term);
 
 /* 補助関数法よりLPC係数を求める（倍精度） */
 LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     struct LPCCalculator *lpcc,
     const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
-    uint32_t max_num_iteration, LPCWindowType window_type);
+    uint32_t max_num_iteration, LPCWindowType window_type, double regular_term);
 
 /* Burg法によりLPC係数を求める（倍精度） */
 LPCApiResult LPCCalculator_CalculateLPCCoefficientsBurg(

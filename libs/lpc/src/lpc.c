@@ -326,7 +326,7 @@ static LPCError LPC_LevinsonDurbinRecursion(struct LPCCalculator *lpcc,
 /* 係数計算の共通関数 */
 static LPCError LPC_CalculateCoef(
     struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order,
-    LPCWindowType window_type)
+    LPCWindowType window_type, double regular_term)
 {
     /* 引数チェック */
     if (lpcc == NULL) {
@@ -354,6 +354,9 @@ static LPCError LPC_CalculateCoef(
         return LPC_ERROR_OK;
     }
 
+    /* 0次相関を強調(Ridge正則化) */
+    lpcc->auto_corr[0] *= (1.0 + regular_term);
+
     /* 再帰計算を実行 */
     if (LPC_LevinsonDurbinRecursion(lpcc, lpcc->auto_corr, coef_order, lpcc->lpc_coef, lpcc->parcor_coef) != LPC_ERROR_OK) {
         return LPC_ERROR_NG;
@@ -366,7 +369,7 @@ static LPCError LPC_CalculateCoef(
 LPCApiResult LPCCalculator_CalculateLPCCoefficients(
     struct LPCCalculator *lpcc,
     const double *data, uint32_t num_samples, double *lpc_coef, uint32_t coef_order,
-    LPCWindowType window_type)
+    LPCWindowType window_type, double regular_term)
 {
     /* 引数チェック */
     if ((data == NULL) || (lpc_coef == NULL)) {
@@ -384,7 +387,7 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficients(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type, regular_term) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 
@@ -574,7 +577,7 @@ static LPCError LPCAF_CalculateCoefMatrixAndVector(
 /* 補助関数法による係数計算 */
 static LPCError LPC_CalculateCoefAF(
         struct LPCCalculator *lpcc, const double *data, uint32_t num_samples, uint32_t coef_order,
-        const uint32_t max_num_iteration, const double obj_epsilon, LPCWindowType window_type)
+        const uint32_t max_num_iteration, const double obj_epsilon, LPCWindowType window_type, double regular_term)
 {
     uint32_t itr, i;
     double *a_vec = lpcc->a_vec;
@@ -584,7 +587,7 @@ static LPCError LPC_CalculateCoefAF(
     LPCError err;
 
     /* 係数をLebinson-Durbin法で初期化 */
-    if ((err = LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type)) != LPC_ERROR_OK) {
+    if ((err = LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type, regular_term)) != LPC_ERROR_OK) {
         return err;
     }
     memcpy(a_vec, lpcc->lpc_coef, sizeof(double) * coef_order);
@@ -633,7 +636,7 @@ static LPCError LPC_CalculateCoefAF(
 LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     struct LPCCalculator *lpcc,
     const double *data, uint32_t num_samples, double *coef, uint32_t coef_order,
-    uint32_t max_num_iteration, LPCWindowType window_type)
+    uint32_t max_num_iteration, LPCWindowType window_type, double regular_term)
 {
     /* 引数チェック */
     if ((lpcc == NULL) || (data == NULL) || (coef == NULL)) {
@@ -646,7 +649,8 @@ LPCApiResult LPCCalculator_CalculateLPCCoefficientsAF(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoefAF(lpcc, data, num_samples, coef_order, max_num_iteration, 1e-8, window_type) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoefAF(lpcc, data, num_samples, coef_order,
+            max_num_iteration, 1e-8, window_type, regular_term) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 
@@ -821,7 +825,7 @@ LPCApiResult LPCCalculator_EstimateCodeLength(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type, 0.0) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 
@@ -875,7 +879,7 @@ LPCApiResult LPCCalculator_CalculateMDL(
     }
 
     /* 係数計算 */
-    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type) != LPC_ERROR_OK) {
+    if (LPC_CalculateCoef(lpcc, data, num_samples, coef_order, window_type, 0.0) != LPC_ERROR_OK) {
         return LPC_APIRESULT_FAILED_TO_CALCULATION;
     }
 
