@@ -31,7 +31,7 @@ you can change compression mode by `-m` option.
 Following example encoding in maximum compression (but slow) option.
 
 ```bash
-./linne -e -m 3 INPUT.wav OUTPUT.lnn
+./linne -e -m 7 INPUT.wav OUTPUT.lnn
 ```
 
 ### Decode
