@@ -17,7 +17,7 @@ static struct CommandLineParserSpecification command_line_spec[] = {
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'd', "decode", "Decode mode",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
-    { 'm', "mode", "Specify compress mode: 0(fast), ..., 3(high compression) default:0",
+    { 'm', "mode", "Specify compress mode: 0(fast), ..., 7(high compression) (default:0)",
         COMMAND_LINE_PARSER_TRUE, NULL, COMMAND_LINE_PARSER_FALSE },
     { 'l', "enable-learning", "Whether to learning at encoding (default:no)",
         COMMAND_LINE_PARSER_FALSE, NULL, COMMAND_LINE_PARSER_FALSE },
