@@ -115,22 +115,22 @@ class LINNE(Codec):
         return f"linne {self.compress_option} -d {in_filename} {out_filename}"
 
 TEST_FILE_DIRECTORY_DICT = {
-       "classic": [
-           './data/RWC Music Database Sub-Working Group - Rwc-Mdb-C-2001-M*/**/*.wav'
-           ],
-       "genre": [
-           './data/RWC Music Database Sub-Working Group - Rwc-Mdb-G-2001-M*/**/*.wav'
-           ],
-       "jazz": [
-           './data/RWC Music Database Sub-Working Group - Rwc-Mdb-J-2001-M*/**/*.wav'
-           ],
-       "popular": [
-           './data/RWC Music Database Sub-Working Group - Rwc-Mdb-P-2001-M*/**/*.wav'
-           ],
-        "right": [
-            './data/RWC Music Database Sub-Working Group - Rwc-Mdb-R-2001-M*/**/*.wav'
-            ],
-        }
+    "classic": [
+        './data/RWC Music Database Sub-Working Group - Rwc-Mdb-C-2001-M*/**/*.wav'
+        ],
+    "genre": [
+        './data/RWC Music Database Sub-Working Group - Rwc-Mdb-G-2001-M*/**/*.wav'
+        ],
+    "jazz": [
+        './data/RWC Music Database Sub-Working Group - Rwc-Mdb-J-2001-M*/**/*.wav'
+        ],
+    "popular": [
+        './data/RWC Music Database Sub-Working Group - Rwc-Mdb-P-2001-M*/**/*.wav'
+        ],
+     "right": [
+        './data/RWC Music Database Sub-Working Group - Rwc-Mdb-R-2001-M*/**/*.wav'
+        ],
+    }
 
 CODEC_CONFUGURES = [
         Flac("-5"),
