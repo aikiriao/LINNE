@@ -188,18 +188,21 @@ static void LINNENetworkLayer_Forward(
         /* 行列積として取り扱うため,
         * h[0]は最も古い入力, h[nparams-1]は直前のサンプルに対応させる
         * 一般的なFIRフィルタと係数順序が逆になるの注意 */
-        /* 開始直後は入力ベクトルは0埋めされていると考える */
-        for (i = 1; i < nparams_per_unit; i++) {
-            predict = 0.0f;
-            for (j = 0; j < i; j++) {
-                predict += pparams[nparams_per_unit - i + j] * pdin[j];
+        i = 0;
+        if (unit == 0) {
+            /* 開始直後は入力ベクトルは0埋めされていると考える */
+            for (i = 1; i < nparams_per_unit; i++) {
+                predict = 0.0f;
+                for (j = 0; j < i; j++) {
+                    predict += pparams[nparams_per_unit - i + j] * pdin[j];
+                }
+                presidual[i] += predict;
             }
-            presidual[i] += predict;
         }
         for (; i < nsmpls_per_unit; i++) {
             predict = 0.0f;
             for (j = 0; j < nparams_per_unit; j++) {
-                predict += pparams[j] * pdin[i - nparams_per_unit + j];
+                predict += pparams[j] * pdin[(int32_t)(i - nparams_per_unit + j)];
             }
             presidual[i] += predict;
         }
