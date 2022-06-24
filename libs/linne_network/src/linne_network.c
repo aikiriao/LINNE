@@ -296,6 +296,7 @@ static void LINNENetworkLayer_SearchOptimalNumUnits(
             const double *pinput = &input[unit * nsmpls_per_unit];
             double *pparams = &layer->params[unit * nparams_per_unit];
             LPCApiResult ret;
+            double residual;
 
             /* 係数計算 */
             ret = LPCCalculator_CalculateLPCCoefficientsAF(lpcc,
@@ -312,16 +313,20 @@ static void LINNENetworkLayer_SearchOptimalNumUnits(
             }
 
             /* その場で予測, 平均絶対値誤差を計算 */
-            for (smpl = 0; smpl < nsmpls_per_unit; smpl++) {
-                double residual = pinput[smpl];
-                if (smpl < nparams_per_unit) {
+            smpl = 0;
+            if (unit == 0) {
+                for (smpl = 1; smpl < nparams_per_unit; smpl++) {
+                    residual = pinput[smpl];
                     for (k = 0; k < smpl; k++) {
                         residual += pparams[nparams_per_unit - smpl + k] * pinput[k];
                     }
-                } else {
-                    for (k = 0; k < nparams_per_unit; k++) {
-                        residual += pparams[k] * pinput[smpl - nparams_per_unit + k];
-                    }
+                    mean_loss += LINNEUTILITY_ABS(residual);
+                }
+            }
+            for (; smpl < nsmpls_per_unit; smpl++) {
+                residual = pinput[smpl];
+                for (k = 0; k < nparams_per_unit; k++) {
+                    residual += pparams[k] * pinput[(int32_t)(smpl - nparams_per_unit + k)];
                 }
                 mean_loss += LINNEUTILITY_ABS(residual);
             }
@@ -598,7 +603,7 @@ void LINNENetwork_SetUnitsAndParameters(
         struct LINNENetwork *net, const double *input, uint32_t num_samples,
         uint32_t num_afmethod_iterations, const double *regular_term_list, uint32_t regular_term_list_size)
 {
-    int32_t i, l, best_i;
+    uint32_t i, best_i;
     double min_loss;
 
     LINNE_ASSERT(net != NULL);

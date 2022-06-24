@@ -6,7 +6,7 @@
 /* LPC係数により予測/誤差出力 */
 void LINNELPC_Predict(
     const int32_t *data, uint32_t num_samples,
-    const int32_t *coef, uint32_t coef_order, int32_t *residual, uint32_t coef_rshift)
+    const int32_t *coef, uint32_t coef_order, int32_t *residual, uint32_t coef_rshift, int32_t is_first_unit)
 {
     int32_t predict;
     uint32_t smpl, ord;
@@ -20,18 +20,21 @@ void LINNELPC_Predict(
 
     memcpy(residual, data, sizeof(int32_t) * num_samples);
 
-    /* LPC係数による予測 */
-    for (smpl = 1; smpl < coef_order; smpl++) {
-        predict = half;
-        for (ord = 0; ord < smpl; ord++) {
-            predict += (coef[coef_order - smpl + ord] * data[ord]);
+    smpl = 0;
+    if (is_first_unit) {
+        /* LPC係数による予測 */
+        for (smpl = 1; smpl < coef_order; smpl++) {
+            predict = half;
+            for (ord = 0; ord < smpl; ord++) {
+                predict += (coef[coef_order - smpl + ord] * data[ord]);
+            }
+            residual[smpl] += (predict >> coef_rshift);
         }
-        residual[smpl] += (predict >> coef_rshift);
     }
-    for (smpl = coef_order; smpl < num_samples; smpl++) {
+    for (; smpl < num_samples; smpl++) {
         predict = half;
         for (ord = 0; ord < coef_order; ord++) {
-            predict += (coef[ord] * data[smpl - coef_order + ord]);
+            predict += (coef[ord] * data[(int32_t)(smpl - coef_order + ord)]);
         }
         residual[smpl] += (predict >> coef_rshift);
     }

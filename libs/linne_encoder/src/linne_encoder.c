@@ -676,17 +676,17 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
     for (ch = 0; ch < header->num_channels; ch++) {
         /* LPC予測 */
         for (l = 0; l < encoder->parameter_preset->num_layers; l++) {
-            uint32_t i;
+            uint32_t u;
             const uint32_t nunits = encoder->num_units[ch][l];
             const uint32_t nparams_per_unit = encoder->parameter_preset->layer_num_params_list[l] / nunits;
             /* 補足: num_samplesはnunitsで割り切れなくてもよい 剰余分の末尾サンプルは予測しない */
             const uint32_t nsmpls_per_unit = num_samples / nunits;
-            for (i = 0; i < nunits; i++) {
-                const int32_t *pinput = &encoder->buffer_int[ch][i * nsmpls_per_unit];
-                int32_t *poutput = &encoder->residual[ch][i * nsmpls_per_unit];
-                const int32_t *pcoef = &encoder->params_int[ch][l][i * nparams_per_unit];
+            for (u = 0; u < nunits; u++) {
+                const int32_t *pinput = &encoder->buffer_int[ch][u * nsmpls_per_unit];
+                int32_t *poutput = &encoder->residual[ch][u * nsmpls_per_unit];
+                const int32_t *pcoef = &encoder->params_int[ch][l][u * nparams_per_unit];
                 /* 予測 */
-                LINNELPC_Predict(pinput, nsmpls_per_unit, pcoef, nparams_per_unit, poutput, encoder->rshifts[ch][l]);
+                LINNELPC_Predict(pinput, nsmpls_per_unit, pcoef, nparams_per_unit, poutput, encoder->rshifts[ch][l], u == 0);
             }
             /* 残差を次のレイヤーの入力へ */
             memcpy(encoder->buffer_int[ch], encoder->residual[ch], sizeof(int32_t) * num_samples);

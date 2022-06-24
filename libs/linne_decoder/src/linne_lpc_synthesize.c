@@ -6,7 +6,7 @@
 /* LPC係数により合成(in-place) */
 void LINNELPC_Synthesize(
     int32_t *data, uint32_t num_samples,
-    const int32_t *coef, uint32_t coef_order, uint32_t coef_rshift)
+    const int32_t *coef, uint32_t coef_order, uint32_t coef_rshift, int32_t is_first_unit)
 {
     int32_t predict;
     uint32_t smpl, ord;
@@ -17,18 +17,21 @@ void LINNELPC_Synthesize(
     LINNE_ASSERT(coef != NULL);
     LINNE_ASSERT(coef_rshift != 0);
 
-    /* LPC係数による予測 */
-    for (smpl = 1; smpl < coef_order; smpl++) {
-        predict = half;
-        for (ord = 0; ord < smpl; ord++) {
-            predict += (coef[coef_order - smpl + ord] * data[ord]);
+    smpl = 0;
+    if (is_first_unit) {
+        /* LPC係数による予測 */
+        for (smpl = 1; smpl < coef_order; smpl++) {
+            predict = half;
+            for (ord = 0; ord < smpl; ord++) {
+                predict += (coef[coef_order - smpl + ord] * data[ord]);
+            }
+            data[smpl] -= (predict >> coef_rshift);
         }
-        data[smpl] -= (predict >> coef_rshift);
     }
-    for (smpl = coef_order; smpl < num_samples; smpl++) {
+    for (; smpl < num_samples; smpl++) {
         predict = half;
         for (ord = 0; ord < coef_order; ord++) {
-            predict += (coef[ord] * data[smpl - coef_order + ord]);
+            predict += (coef[ord] * data[(int32_t)(smpl - coef_order + ord)]);
         }
         data[smpl] -= (predict >> coef_rshift);
     }

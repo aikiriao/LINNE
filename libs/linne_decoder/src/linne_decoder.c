@@ -514,7 +514,7 @@ static LINNEApiResult LINNEDecoder_DecodeCompressData(
                 int32_t *poutput = &buffer[ch][u * nsmpls_per_unit];
                 const int32_t *pcoef = &decoder->params_int[ch][l][u * nparams_per_unit];
                 /* 合成 */
-                LINNELPC_Synthesize(poutput, nsmpls_per_unit, pcoef, nparams_per_unit, rshift);
+                LINNELPC_Synthesize(poutput, nsmpls_per_unit, pcoef, nparams_per_unit, rshift, u == 0);
             }
         }
         /* デエンファシス */
