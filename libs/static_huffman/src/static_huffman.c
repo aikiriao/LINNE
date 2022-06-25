@@ -78,7 +78,7 @@ void StaticHuffman_BuildHuffmanTree(
 
         /* 親ノードに情報を詰める */
         /* 親ノードの頻度は子の和 */
-        counts_work[free_node] = counts_work[min1] + counts_work[min2]; 
+        counts_work[free_node] = counts_work[min1] + counts_work[min2];
         /* 子ノードの頻度は無効値に */
         counts_work[min1] = counts_work[min2] = 0;
         /* 子ノードのインデックスを記録 */
@@ -96,7 +96,7 @@ void StaticHuffman_BuildHuffmanTree(
 
 /* ハフマン木から符号を構築 */
 static void StaticHuffman_ConvertTreeToCodesCore(
-    const struct StaticHuffmanTree *tree, struct StaticHuffmanCodes *codes, 
+    const struct StaticHuffmanTree *tree, struct StaticHuffmanCodes *codes,
     uint32_t node, uint32_t code, uint8_t bit_count)
 {
     assert(tree != NULL);
