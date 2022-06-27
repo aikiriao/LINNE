@@ -202,13 +202,6 @@ int32_t LINNEDecoder_CalculateWorkSize(const struct LINNEDecoderConfig *config)
 
     /* 構造体サイズ（+メモリアラインメント） */
     work_size = sizeof(struct LINNEDecoder) + LINNE_MEMORY_ALIGNMENT;
-
-    /* 符号化ハンドル */
-    if ((tmp_work_size = LINNECoder_CalculateWorkSize()) < 0) {
-        return -1;
-    }
-    work_size += tmp_work_size;
-
     /* デエンファシスフィルタのサイズ */
     work_size += LINNE_CALCULATE_2DIMARRAY_WORKSIZE(struct LINNEPreemphasisFilter, config->max_num_channels, LINNE_NUM_PREEMPHASIS_FILTERS);
     /* パラメータ領域 */
