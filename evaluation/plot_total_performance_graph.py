@@ -3,7 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from adjustText import adjust_text
 
-CODEC_LABEL_PREFIXES = ['Flac', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS']
+CODEC_LABEL_PREFIXES = ['Flac', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS', 'LINNE']
 COLORLIST = ['r', 'g', 'b', 'c', 'm', 'y', 'k', 'w']
 
 if __name__ == "__main__":
