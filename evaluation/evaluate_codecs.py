@@ -1,12 +1,11 @@
 " コーデック評価 "
 import glob
 import os
-import shutil
+import csv
 from pathlib import Path
 from timeit import timeit
 import numpy as np
 import scipy.io.wavfile as wv
-import csv
 
 def _get_wavfile_length_sec(filename):
     """ 音声ファイル長計測 """
@@ -166,7 +165,8 @@ if __name__ == "__main__":
     for codec in CODEC_CONFUGURES:
         results[codec.get_label()] = {}
         for categ, fs in filesdir.items():
-            results[codec.get_label()][categ] = { 'encode_time': [], 'decode_time': [], 'compress_rate': [] }
+            results[codec.get_label()][categ]\
+                = { 'encode_time': [], 'decode_time': [], 'compress_rate': [] }
             for f in fs:
                 print(f'[{codec.get_label()}] {f}')
                 # 1ファイル計測
@@ -174,9 +174,12 @@ if __name__ == "__main__":
                 decode_time = codec.decode(COMPRESS_TMP_FILENAME, DECOMPRESS_TMP_FILENAME)
                 # 結果記録
                 original_time = _get_wavfile_length_sec(f)
-                results[codec.get_label()][categ]['encode_time'].append((encode_time * 100) / original_time)
-                results[codec.get_label()][categ]['decode_time'].append((decode_time * 100) / original_time)
-                results[codec.get_label()][categ]['compress_rate'].append((size * 100) / os.path.getsize(f))
+                results[codec.get_label()][categ]['encode_time']\
+                    .append((encode_time * 100) / original_time)
+                results[codec.get_label()][categ]['decode_time']\
+                    .append((decode_time * 100) / original_time)
+                results[codec.get_label()][categ]['compress_rate']\
+                    .append((size * 100) / os.path.getsize(f))
                 # 中間生成物の削除
                 if os.path.exists(COMPRESS_TMP_FILENAME):
                     os.remove(COMPRESS_TMP_FILENAME)
@@ -187,20 +190,20 @@ if __name__ == "__main__":
     total_result = {}
     for codec in CODEC_CONFUGURES:
         total_result[codec] = { 'encode_time': [], 'decode_time': [], 'compress_rate': [] }
-        for categ in filesdir.keys():
+        for categ, _ in filesdir:
             for e in total_result[codec].keys():
                 total_result[codec][e].extend(results[codec.get_label()][categ][e])
         for e in total_result[codec].keys():
             total_result[codec][e] = np.mean(total_result[codec][e])
 
     # 結果出力
-    with open('codec_comaprison_summery.csv', 'w') as f:
+    with open('codec_comaprison_summery.csv', 'w', encoding='UTF-8') as f:
         writer = csv.writer(f, lineterminator='\n')
         header = ['']
         for codec in CODEC_CONFUGURES:
             header.append(codec.get_label())
         writer.writerow(header)
-        for categ in filesdir.keys():
+        for categ, _ in filesdir:
             row = [f'{categ} mean encode time']
             for codec in CODEC_CONFUGURES:
                 row.append(np.mean(results[codec.get_label()][categ]['encode_time']))
@@ -209,7 +212,7 @@ if __name__ == "__main__":
         for codec in CODEC_CONFUGURES:
             row.append(total_result[codec]['encode_time'])
         writer.writerow(row)
-        for categ in filesdir.keys():
+        for categ, _ in filesdir:
             row = [f'{categ} mean decode time']
             for codec in CODEC_CONFUGURES:
                 row.append(np.mean(results[codec.get_label()][categ]['decode_time']))
@@ -218,7 +221,7 @@ if __name__ == "__main__":
         for codec in CODEC_CONFUGURES:
             row.append(total_result[codec]['decode_time'])
         writer.writerow(row)
-        for categ in filesdir.keys():
+        for categ, _ in filesdir:
             row = [f'{categ} mean compression rate']
             for codec in CODEC_CONFUGURES:
                 row.append(np.mean(results[codec.get_label()][categ]['compress_rate']))
