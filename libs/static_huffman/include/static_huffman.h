@@ -7,29 +7,23 @@
 /* 符号化するシンボルの最大数 */
 #define STATICHUFFMAN_MAX_NUM_SYMBOLS 256
 
-/* 符号 */
-struct HuffmanCode {
-    uint32_t code;        /* 割り当てたコード（最長32bit） */
-    uint8_t bit_count;    /* コード長                      */
-};
-
-/* ハフマン木のノード */
-struct HuffmanTreeNode {
-    uint32_t node_0; /* 左側の子供のインデックス */
-    uint32_t node_1; /* 右側の子供のインデックス */
-};
-
 /* ハフマン木 */
 struct StaticHuffmanTree {
-    uint32_t num_symbols;                                             /* 符号化シンボル数       */
-    uint32_t root_node;                                               /* 根ノードのインデックス */
-    struct HuffmanTreeNode nodes[2 * STATICHUFFMAN_MAX_NUM_SYMBOLS];  /* 木のノード             */
+    uint32_t num_symbols;                       /* 符号化シンボル数         */
+    uint32_t root_node;                         /* 根ノードのインデックス   */
+    struct {
+        uint32_t node_0;                        /* 左側の子供のインデックス */
+        uint32_t node_1;                        /* 右側の子供のインデックス */
+    } nodes[2 * STATICHUFFMAN_MAX_NUM_SYMBOLS]; /* 木のノード               */
 };
 
 /* ハフマン符号 */
 struct StaticHuffmanCodes {
-    uint32_t num_symbols;                                     /* 符号化シンボル数   */
-    struct HuffmanCode codes[STATICHUFFMAN_MAX_NUM_SYMBOLS];  /* 各シンボルの符号   */
+    uint32_t num_symbols;                    /* 符号化シンボル数              */
+    struct {
+        uint32_t code;                       /* 割り当てたコード（最長32bit） */
+        uint8_t bit_count;                   /* コード長                      */
+    } codes[STATICHUFFMAN_MAX_NUM_SYMBOLS];  /* 各シンボルの符号              */
 };
 
 #ifdef __cplusplus

@@ -33,7 +33,6 @@ void StaticHuffman_BuildHuffmanTree(
 #define SENTINEL_NODE (2 * STATICHUFFMAN_MAX_NUM_SYMBOLS)
     uint32_t min1, min2;  /* min1が最小頻度、min2が2番目の最小頻度  */
     uint32_t free_node, node;
-    struct HuffmanTreeNode *nodes = tree->nodes;
     uint32_t counts_work[(2 * STATICHUFFMAN_MAX_NUM_SYMBOLS) + 1]; /* シンボルの頻度（番兵ノードで1つ分追加） */
 
     assert((symbol_counts != NULL) && (tree != NULL));
@@ -82,8 +81,8 @@ void StaticHuffman_BuildHuffmanTree(
         /* 子ノードの頻度は無効値に */
         counts_work[min1] = counts_work[min2] = 0;
         /* 子ノードのインデックスを記録 */
-        nodes[free_node].node_0 = min1;
-        nodes[free_node].node_1 = min2;
+        tree->nodes[free_node].node_0 = min1;
+        tree->nodes[free_node].node_1 = min2;
     }
 
     assert(free_node <= (2 * STATICHUFFMAN_MAX_NUM_SYMBOLS));
@@ -149,7 +148,6 @@ uint32_t StaticHuffman_GetCode(
     const struct StaticHuffmanTree *tree, struct BitStream *stream)
 {
     uint32_t node, bit;
-    const struct HuffmanTreeNode* nodes = tree->nodes;
 
     assert(tree != NULL);
     assert(stream != NULL);
@@ -160,7 +158,7 @@ uint32_t StaticHuffman_GetCode(
     /* 葉ノードに達するまで木を辿る */
     do {
         BitReader_GetBits(stream, &bit, 1);
-        node = (bit == 0) ? nodes[node].node_0 : nodes[node].node_1;
+        node = (bit == 0) ? tree->nodes[node].node_0 : tree->nodes[node].node_1;
     } while (node >= tree->num_symbols);
 
     assert(node < tree->num_symbols);
