@@ -2,8 +2,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "bit_stream.h"
-
 /* カウントの正規化 */
 static void StaticHuffman_NormalizeSymbolCounts(
     const uint32_t *symbol_counts, uint32_t num_symbols,
