@@ -351,7 +351,13 @@ int main(int argc, char** argv)
         uint8_t num_afmethod_iterations = 0;
         /* エンコードプリセット番号取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "mode") == COMMAND_LINE_PARSER_TRUE) {
-            encode_preset_no = (uint32_t)strtol(CommandLineParser_GetArgumentString(command_line_spec, "mode"), NULL, 10);
+            char *e;
+            const char *lstr = CommandLineParser_GetArgumentString(command_line_spec, "mode");
+            encode_preset_no = (uint32_t)strtol(lstr, &e, 10);
+            if (*e != '\0') {
+                fprintf(stderr, "%s: invalid encode preset number. (irregular character found in %s at %s)\n", argv[0], lstr, e);
+                return 1;
+            }
             if (encode_preset_no >= LINNE_NUM_PARAMETER_PRESETS) {
                 fprintf(stderr, "%s: encode preset number is out of range. \n", argv[0]);
                 return 1;
@@ -363,7 +369,13 @@ int main(int argc, char** argv)
         }
         /* 補助関数法の繰り返し回数を取得 */
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "auxiliary-function-iteration") == COMMAND_LINE_PARSER_TRUE) {
-            num_afmethod_iterations = (uint8_t)strtol(CommandLineParser_GetArgumentString(command_line_spec, "auxiliary-function-iteration"), NULL, 10);
+            char *e;
+            const char *lstr = CommandLineParser_GetArgumentString(command_line_spec, "auxiliary-function-iteration");
+            num_afmethod_iterations = (uint32_t)strtol(lstr, &e, 10);
+            if (*e != '\0') {
+                fprintf(stderr, "%s: invalid auxiliary function iteration count. (irregular character found in %s at %s)\n", argv[0], lstr, e);
+                return 1;
+            }
             if (num_afmethod_iterations >= UINT8_MAX) {
                 fprintf(stderr, "%s: auxiliary function iteration count is out of range. \n", argv[0]);
                 return 1;
