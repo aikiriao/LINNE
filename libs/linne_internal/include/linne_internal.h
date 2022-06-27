@@ -70,6 +70,8 @@ struct LINNEParameterPreset {
     const uint32_t *layer_num_params_list;
     uint32_t num_regular_terms;
     const double* regular_terms_list;
+    uint32_t num_coef_symbols;
+    const uint32_t* coef_symbol_freq_table;
 };
 
 #ifdef __cplusplus

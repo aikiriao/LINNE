@@ -9,6 +9,7 @@
 #include "byte_array.h"
 #include "bit_stream.h"
 #include "lpc.h"
+#include "static_huffman.h"
 
 /* 内部状態フラグ */
 #define LINNEDECODER_STATUS_FLAG_ALLOCED_BY_OWN  (1 << 0)  /* 領域を自己割当した */
@@ -31,6 +32,7 @@ struct LINNEDecoder {
     uint32_t **num_units; /* 各層のユニット数 */
     uint32_t **rshifts; /* 各層のLPC係数右シフト量 */
     const struct LINNEParameterPreset *parameter_preset; /* パラメータプリセット */
+    struct StaticHuffmanTree coef_tree; /* 係数ハフマン木 */
     uint8_t status_flags; /* 内部状態フラグ */
     void *work; /* ワーク領域先頭ポインタ */
 };
@@ -347,6 +349,10 @@ LINNEApiResult LINNEDecoder_SetHeader(
     LINNE_ASSERT(header->preset < LINNE_NUM_PARAMETER_PRESETS);
     decoder->parameter_preset = &g_linne_parameter_preset[header->preset];
 
+    /* 係数ハフマン木構築 */
+    StaticHuffman_BuildHuffmanTree(
+        decoder->parameter_preset->coef_symbol_freq_table, decoder->parameter_preset->num_coef_symbols, &decoder->coef_tree);
+
     /* ヘッダセット */
     decoder->header = (*header);
     LINNEDECODER_SET_STATUS_FLAG(decoder, LINNEDECODER_STATUS_FLAG_SET_HEADER);
@@ -481,7 +487,7 @@ static LINNEApiResult LINNEDecoder_DecodeCompressData(
             decoder->rshifts[ch][l] = (uint32_t)(LINNE_LPC_COEFFICIENT_BITWIDTH - LINNEUTILITY_UINT32_TO_SINT32(uval));
             /* LPC係数 */
             for (i = 0; i < decoder->parameter_preset->layer_num_params_list[l]; i++) {
-                BitReader_GetBits(&reader, &uval, LINNE_LPC_COEFFICIENT_BITWIDTH);
+                uval = StaticHuffman_GetCode(&decoder->coef_tree, &reader);
                 decoder->params_int[ch][l][i] = LINNEUTILITY_UINT32_TO_SINT32(uval);
             }
         }

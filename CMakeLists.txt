@@ -12,6 +12,7 @@ add_library(${CODEC_LIB_NAME}
     $<TARGET_OBJECTS:linne_network>
     $<TARGET_OBJECTS:bit_stream>
     $<TARGET_OBJECTS:lpc>
+    $<TARGET_OBJECTS:static_huffman>
     )
 
 # デコーダライブラリ
@@ -23,6 +24,7 @@ add_library(${DECODER_LIB_NAME}
     $<TARGET_OBJECTS:linne_coder>
     $<TARGET_OBJECTS:linne_internal>
     $<TARGET_OBJECTS:bit_stream>
+    $<TARGET_OBJECTS:static_huffman>
     )
 
 # 依存するプロジェクト

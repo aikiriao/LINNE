@@ -11,6 +11,7 @@
 #include "lpc.h"
 #include "linne_network.h"
 #include "linne_coder.h"
+#include "static_huffman.h"
 
 /* エンコーダハンドル */
 struct LINNEEncoder {
@@ -35,6 +36,7 @@ struct LINNEEncoder {
     int32_t **residual; /* 残差信号 */
     double *buffer_double; /* 信号バッファ(double) */
     const struct LINNEParameterPreset *parameter_preset; /* パラメータプリセット */
+    struct StaticHuffmanCodes coef_code; /* 係数ハフマン符号 */
     uint8_t alloced_by_own; /* 領域を自前確保しているか？ */
     void *work; /* ワーク領域先頭ポインタ */
 };
@@ -459,6 +461,15 @@ LINNEApiResult LINNEEncoder_SetEncodeParameter(
     /* 補助関数法の繰り返し回数をセット */
     encoder->num_afmethod_iterations = parameter->num_afmethod_iterations;
 
+
+    /* 係数ハフマン符号構築 */
+    {
+        struct StaticHuffmanTree coef_tree;
+        StaticHuffman_BuildHuffmanTree(
+            encoder->parameter_preset->coef_symbol_freq_table, encoder->parameter_preset->num_coef_symbols, &coef_tree);
+        StaticHuffman_ConvertTreeToCodes(&coef_tree, &encoder->coef_code);
+    }
+
     /* パラメータ設定済みフラグを立てる */
     encoder->set_parameter = 1;
 
@@ -728,7 +739,7 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
             for (i = 0; i < encoder->parameter_preset->layer_num_params_list[l]; i++) {
                 uval = LINNEUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][l][i]);
                 LINNE_ASSERT(uval < (1 << LINNE_LPC_COEFFICIENT_BITWIDTH));
-                BitWriter_PutBits(&writer, uval, LINNE_LPC_COEFFICIENT_BITWIDTH);
+                StaticHuffman_PutCode(&encoder->coef_code, &writer, uval);
             }
         }
     }
