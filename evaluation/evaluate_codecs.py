@@ -190,7 +190,7 @@ if __name__ == "__main__":
     total_result = {}
     for codec in CODEC_CONFUGURES:
         total_result[codec] = { 'encode_time': [], 'decode_time': [], 'compress_rate': [] }
-        for categ, _ in filesdir:
+        for categ in filesdir:
             for e in total_result[codec].keys():
                 total_result[codec][e].extend(results[codec.get_label()][categ][e])
         for e in total_result[codec].keys():
@@ -203,7 +203,7 @@ if __name__ == "__main__":
         for codec in CODEC_CONFUGURES:
             header.append(codec.get_label())
         writer.writerow(header)
-        for categ, _ in filesdir:
+        for categ in filesdir:
             row = [f'{categ} mean encode time']
             for codec in CODEC_CONFUGURES:
                 row.append(np.mean(results[codec.get_label()][categ]['encode_time']))
@@ -212,7 +212,7 @@ if __name__ == "__main__":
         for codec in CODEC_CONFUGURES:
             row.append(total_result[codec]['encode_time'])
         writer.writerow(row)
-        for categ, _ in filesdir:
+        for categ in filesdir:
             row = [f'{categ} mean decode time']
             for codec in CODEC_CONFUGURES:
                 row.append(np.mean(results[codec.get_label()][categ]['decode_time']))
@@ -221,7 +221,7 @@ if __name__ == "__main__":
         for codec in CODEC_CONFUGURES:
             row.append(total_result[codec]['decode_time'])
         writer.writerow(row)
-        for categ, _ in filesdir:
+        for categ in filesdir:
             row = [f'{categ} mean compression rate']
             for codec in CODEC_CONFUGURES:
                 row.append(np.mean(results[codec.get_label()][categ]['compress_rate']))
