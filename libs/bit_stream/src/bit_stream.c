@@ -42,22 +42,22 @@ void BitReader_Open(struct BitStream *stream, const uint8_t *memory, size_t size
     /* 引数チェック */
     assert(stream != NULL);
     assert(memory != NULL);
-    
+
     /* 内部状態リセット */
     stream->flags = 0;
-    
+
     /* バッファ初期化 */
     stream->bit_count   = 0;
     stream->bit_buffer  = 0;
-    
+
     /* メモリセット */
     stream->memory_image = memory;
     stream->memory_size = size;
     stream->memory_tail = memory + size;
-    
+
     /* 読み出し位置は先頭に */
     stream->memory_p = (uint8_t *)(memory);
-    
+
     /* 読みモードとしてセット */
     stream->flags |= (uint8_t)BITSTREAM_FLAGS_MODE_READ;
 }
@@ -68,22 +68,22 @@ void BitWriter_Open(struct BitStream *stream, const uint8_t *memory, size_t size
     /* 引数チェック */
     assert(stream != NULL);
     assert(memory != NULL);
-    
+
     /* 内部状態リセット */
     stream->flags = 0;
-    
+
     /* バッファ初期化 */
     stream->bit_count = 8;
     stream->bit_buffer = 0;
-    
+
     /* メモリセット */
     stream->memory_image = memory;
     stream->memory_size = size;
     stream->memory_tail = memory + size;
-    
+
     /* 読み出し位置は先頭に */
     stream->memory_p = (uint8_t *)(memory);
-    
+
     /* 書きモードとしてセット */
     stream->flags &= (uint8_t)(~BITSTREAM_FLAGS_MODE_READ);
 }
@@ -93,7 +93,7 @@ void BitStream_Close(struct BitStream *stream)
 {
     /* 引数チェック */
     assert(stream != NULL);
-    
+
     /* 残ったデータをフラッシュ */
     BitStream_Flush(stream);
 
@@ -113,13 +113,13 @@ void BitStream_Close(struct BitStream *stream)
 void BitStream_Seek(struct BitStream *stream, int32_t offset, int32_t origin)
 {
     uint8_t *pos = NULL;
-    
+
     /* 引数チェック */
     assert(stream != NULL);
-    
+
     /* 内部バッファをクリア（副作用が起こる） */
     BitStream_Flush(stream);
-    
+
     /* 起点をまず定める */
     switch (origin) {
     case BITSTREAM_SEEK_CUR:
@@ -134,14 +134,14 @@ void BitStream_Seek(struct BitStream *stream, int32_t offset, int32_t origin)
     default:
         assert(0);
     }
-    
+
     /* オフセット分動かす */
     pos += (offset);
-    
+
     /* 範囲チェック */
     assert(pos >= stream->memory_image);
     assert(pos < (stream)->memory_tail);
-    
+
     /* 結果の保存 */
     stream->memory_p = pos;
 }
@@ -152,7 +152,7 @@ void BitStream_Tell(struct BitStream *stream, int32_t *result)
     /* 引数チェック */
     assert(stream != NULL);
     assert(result != NULL);
-    
+
     /* アクセスオフセットを返す */
     (*result) = (int32_t)(stream->memory_p - stream->memory_image);
 }
@@ -224,32 +224,32 @@ void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
 {
     uint8_t  ch;
     uint32_t tmp = 0;
-    
+
     /* 引数チェック */
     assert(stream != NULL);
     assert(val != NULL);
-    
+
     /* 読み込みモードでない場合はアサート */
     assert(stream->flags & BITSTREAM_FLAGS_MODE_READ);
-    
+
     /* 入力可能な最大ビット数を越えている */
     assert(nbits <= (sizeof(uint32_t) * 8));
-    
+
     /* 最上位ビットからデータを埋めていく
     * 初回ループではtmpの上位ビットにセット
     * 2回目以降は8bit単位で入力しtmpにセット */
     while (nbits > stream->bit_count) {
         nbits -= stream->bit_count;
         tmp |= BITSTREAM_GETLOWERBITS(stream->bit_buffer, stream->bit_count) << nbits;
-        
+
         /* 終端に達していないかチェック */
         assert(stream->memory_p >= stream->memory_image);
         assert(stream->memory_p < stream->memory_tail);
-        
+
         /* メモリから読み出し */
         ch = (*stream->memory_p);
         stream->memory_p++;
-        
+
         stream->bit_buffer = ch;
         stream->bit_count = 8;
     }
@@ -266,32 +266,32 @@ void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
 void BitReader_GetZeroRunLength(struct BitStream *stream, uint32_t *runlength)
 {
     uint32_t run;
-    
+
     /* 引数チェック */
     assert(stream != NULL);
     assert(runlength != NULL);
-    
+
     /* 上位ビットからの連続する0を計測 */
     run = g_bitstream_zerobit_runlength_table[BITSTREAM_GETLOWERBITS(stream->bit_buffer, stream->bit_count)];
     run += stream->bit_count - 8;
-    
+
     /* 読み込んだ分カウントを減らす */
     stream->bit_count -= run;
-    
+
     /* バッファが空の時 */
     while (stream->bit_count == 0) {
         /* 1バイト読み込みとエラー処理 */
         uint8_t ch;
         uint32_t tmp_run;
-        
+
         /* 終端に達していないかチェック */
         assert(stream->memory_p >= stream->memory_image);
         assert(stream->memory_p < stream->memory_tail);
-        
+
         /* メモリから読み出し */
         ch = (*stream->memory_p);
         stream->memory_p++;
-        
+
         /* ビットバッファにセットし直して再度ランを計測 */
         stream->bit_buffer = ch;
         /* テーブルによりラン長を取得 */
@@ -300,10 +300,10 @@ void BitReader_GetZeroRunLength(struct BitStream *stream, uint32_t *runlength)
         /* ランを加算 */
         run += tmp_run;
     }
-    
+
     /* 続く1を空読み */
     stream->bit_count -= 1;
-    
+
     /* 正常終了 */
     (*(runlength)) = run;
 }
