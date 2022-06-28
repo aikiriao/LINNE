@@ -51,8 +51,9 @@ void BitReader_Open(struct BitStream *stream, const uint8_t *memory, size_t size
     stream->bit_buffer  = 0;
     
     /* メモリセット */
-    stream->memory_image = (memory);
-    stream->memory_size  = (size);
+    stream->memory_image = memory;
+    stream->memory_size = size;
+    stream->memory_tail = memory + size;
     
     /* 読み出し位置は先頭に */
     stream->memory_p = (uint8_t *)(memory);
@@ -76,8 +77,9 @@ void BitWriter_Open(struct BitStream *stream, const uint8_t *memory, size_t size
     stream->bit_buffer = 0;
     
     /* メモリセット */
-    stream->memory_image = (memory);
-    stream->memory_size = (size);
+    stream->memory_image = memory;
+    stream->memory_size = size;
+    stream->memory_tail = memory + size;
     
     /* 読み出し位置は先頭に */
     stream->memory_p = (uint8_t *)(memory);
@@ -127,7 +129,7 @@ void BitStream_Seek(struct BitStream *stream, int32_t offset, int32_t origin)
         pos = (uint8_t *)stream->memory_image;
         break;
     case BITSTREAM_SEEK_END:
-        pos = (uint8_t *)(stream->memory_image + (stream->memory_size - 1));
+        pos = (uint8_t *)((stream)->memory_tail - 1);
         break;
     default:
         assert(0);
@@ -138,7 +140,7 @@ void BitStream_Seek(struct BitStream *stream, int32_t offset, int32_t origin)
     
     /* 範囲チェック */
     assert(pos >= stream->memory_image);
-    assert(pos < (stream->memory_image + stream->memory_size));
+    assert(pos < (stream)->memory_tail);
     
     /* 結果の保存 */
     stream->memory_p = pos;
@@ -179,7 +181,7 @@ void BitWriter_PutBits(struct BitStream *stream, uint32_t val, uint32_t nbits)
 
         /* 終端に達していないかチェック */
         assert(stream->memory_p >= stream->memory_image);
-        assert(stream->memory_p < (stream->memory_image + stream->memory_size));
+        assert(stream->memory_p < stream->memory_tail);
 
         /* メモリに書き出し */
         (*stream->memory_p) = (stream->bit_buffer & 0xFF);
@@ -242,7 +244,7 @@ void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
         
         /* 終端に達していないかチェック */
         assert(stream->memory_p >= stream->memory_image);
-        assert(stream->memory_p < (stream->memory_image + stream->memory_size));
+        assert(stream->memory_p < stream->memory_tail);
         
         /* メモリから読み出し */
         ch = (*stream->memory_p);
@@ -284,7 +286,7 @@ void BitReader_GetZeroRunLength(struct BitStream *stream, uint32_t *runlength)
         
         /* 終端に達していないかチェック */
         assert(stream->memory_p >= stream->memory_image);
-        assert(stream->memory_p < (stream->memory_image + stream->memory_size));
+        assert(stream->memory_p < stream->memory_tail);
         
         /* メモリから読み出し */
         ch = (*stream->memory_p);

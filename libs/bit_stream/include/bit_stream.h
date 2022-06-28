@@ -21,6 +21,7 @@ struct BitStream {
     uint32_t        bit_buffer;
     uint32_t        bit_count;
     const uint8_t  *memory_image;
+    const uint8_t  *memory_tail;
     size_t          memory_size;
     uint8_t        *memory_p;
     uint8_t         flags;
@@ -86,6 +87,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         /* メモリセット */\
         (stream)->memory_image = (memory);\
         (stream)->memory_size  = (size);\
+        (stream)->memory_tail  = (memory) + (size);\
         \
         /* 読み出し位置は先頭に */\
         (stream)->memory_p = (memory);\
@@ -111,6 +113,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         /* メモリセット */\
         (stream)->memory_image = (memory);\
         (stream)->memory_size  = (size);\
+        (stream)->memory_tail  = (memory) + (size);\
         \
         /* 読み出し位置は先頭に */\
         (stream)->memory_p = (memory);\
@@ -160,8 +163,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
             __pos = (uint8_t *)(stream)->memory_image;\
             break;\
         case BITSTREAM_SEEK_END:\
-            __pos = (uint8_t *)((stream)->memory_image\
-                        + ((stream)->memory_size - 1));\
+            __pos = (uint8_t *)((stream)->memory_tail - 1);\
             break;\
         default:\
             assert(0);\
@@ -172,7 +174,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         \
         /* 範囲チェック */\
         assert(__pos >= (stream)->memory_image);\
-        assert(__pos < ((stream)->memory_image + (stream)->memory_size));\
+        assert(__pos < (stream)->memory_tail);\
         \
         /* 結果の保存 */\
         (stream)->memory_p = __pos;\
@@ -219,8 +221,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
             \
             /* 終端に達していないかチェック */\
             assert((stream)->memory_p >= (stream)->memory_image);\
-            assert((stream)->memory_p\
-                    < ((stream)->memory_image + (stream)->memory_size));\
+            assert((stream)->memory_p < (stream)->memory_tail);\
             \
             /* メモリに書き出し */\
             (*(stream)->memory_p) = ((stream)->bit_buffer & 0xFF);\
@@ -289,8 +290,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
             \
             /* 終端に達していないかチェック */\
             assert((stream)->memory_p >= (stream)->memory_image);\
-            assert((stream)->memory_p\
-                    < ((stream)->memory_image + (stream)->memory_size));\
+            assert((stream)->memory_p < (stream)->memory_tail);\
             \
             /* メモリから読み出し */\
             __ch = (*(stream)->memory_p);\
@@ -335,8 +335,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
             \
             /* 終端に達していないかチェック */\
             assert((stream)->memory_p >= (stream)->memory_image);\
-            assert((stream)->memory_p\
-                    < ((stream)->memory_image + (stream)->memory_size));\
+            assert((stream)->memory_p <(stream)->memory_tail);\
             \
             /* メモリから読み出し */\
             __ch = (*(stream)->memory_p);\
