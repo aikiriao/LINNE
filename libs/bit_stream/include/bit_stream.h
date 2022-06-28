@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <assert.h>
 
+/* マクロを使うか否か？ */
+#define BITSTREAM_USE_MACROS 1
+
 /* BitStream_Seek関数の探索コード */
 #define BITSTREAM_SEEK_SET  (int32_t)SEEK_SET
 #define BITSTREAM_SEEK_CUR  (int32_t)SEEK_CUR
@@ -25,6 +28,40 @@ struct BitStream {
 
 /* valの下位nbitsを取得 */
 #define BITSTREAM_GETLOWERBITS(val, nbits) ((val) & g_bitstream_lower_bits_mask[(nbits)])
+
+#if !defined(BITSTREAM_USE_MACROS)
+
+/* ビットリーダのオープン */
+void BitReader_Open(struct BitStream *stream, const uint8_t *memory, size_t size);
+
+/* ビットライタのオープン */
+void BitWriter_Open(struct BitStream *stream, const uint8_t *memory, size_t size);
+
+/* ビットストリームのクローズ */
+void BitStream_Close(struct BitStream *stream);
+
+/* シーク(fseek準拠) */
+void BitStream_Seek(struct BitStream *stream, int32_t offset, int32_t origin);
+
+/* 現在位置(ftell)準拠 */
+void BitStream_Tell(struct BitStream *stream, int32_t *result);
+
+/* valの右側（下位）nbits 出力（最大32bit出力可能） */
+void BitWriter_PutBits(struct BitStream *stream, uint32_t val, uint32_t nbits);
+
+/* 0のランに続いて終わりの1を出力 */
+void BitWriter_PutZeroRun(struct BitStream *stream, uint32_t runlength);
+
+/* nbits 取得（最大32bit）し、その値を右詰めして出力 */
+void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits);
+
+/* つぎの1にぶつかるまで読み込み、その間に読み込んだ0のランレングスを取得 */
+void BitReader_GetZeroRunLength(struct BitStream *stream, uint32_t *runlength);
+
+/* バッファにたまったビットをクリア */
+void BitStream_Flush(struct BitStream *stream);
+
+#else
 
 /* 下位ビットを取り出すためのマスク */
 extern const uint32_t g_bitstream_lower_bits_mask[33];
@@ -341,5 +378,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
             }\
         }\
     } while (0)
+
+#endif /* BITSTREAM_USE_MACROS */
 
 #endif /* BITSTREAM_H_INCLUDED */
