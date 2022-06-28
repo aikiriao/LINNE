@@ -4,6 +4,11 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
+#include <limits.h>
+
+#if CHAR_BIT != 8
+#error "This program 8bit/byte system only."
+#endif
 
 /* マクロを使うか否か？ */
 #define BITSTREAM_USE_MACROS 1
