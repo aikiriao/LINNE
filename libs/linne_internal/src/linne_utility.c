@@ -229,12 +229,12 @@ void LINNEPreemphasisFilter_MultiStageDeemphasis(
     buffer[0] += (preem[1].prev * c1) >> LINNE_PREEMPHASIS_COEF_SHIFT;
     buffer[1] += (buffer[0] * c1) >> LINNE_PREEMPHASIS_COEF_SHIFT;
     buffer[0] += (preem[0].prev * c0) >> LINNE_PREEMPHASIS_COEF_SHIFT;
-    
+
     for (smpl = 2; smpl < num_samples; smpl++) {
         buffer[smpl] += (buffer[smpl - 1] * c1) >> LINNE_PREEMPHASIS_COEF_SHIFT;
         buffer[smpl - 1] += (buffer[smpl - 2] * c0) >> LINNE_PREEMPHASIS_COEF_SHIFT;
     }
-    
+
     preem[0].prev = buffer[num_samples - 1];
     buffer[num_samples - 1] += (buffer[num_samples - 2] * c0) >> LINNE_PREEMPHASIS_COEF_SHIFT;
     preem[1].prev = buffer[num_samples - 1];
