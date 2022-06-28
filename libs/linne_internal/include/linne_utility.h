@@ -149,9 +149,9 @@ void LINNEPreemphasisFilter_CalculateCoefficient(
 void LINNEPreemphasisFilter_Preemphasis(
         struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples);
 
-/* デエンファシス */
-void LINNEPreemphasisFilter_Deemphasis(
-        struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples);
+/* デエンファシスを複数回適用 */
+void LINNEPreemphasisFilter_MultiStageDeemphasis(
+    struct LINNEPreemphasisFilter *preem, uint32_t num_preem, int32_t *buffer, uint32_t num_samples);
 
 #ifdef __cplusplus
 }

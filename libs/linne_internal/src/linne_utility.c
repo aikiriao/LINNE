@@ -211,18 +211,31 @@ void LINNEPreemphasisFilter_Preemphasis(
     preem->prev = prev;
 }
 
-/* デエンファシス */
-void LINNEPreemphasisFilter_Deemphasis(
-        struct LINNEPreemphasisFilter *preem, int32_t *buffer, uint32_t num_samples)
+/* デエンファシスを複数回適用 */
+void LINNEPreemphasisFilter_MultiStageDeemphasis(
+    struct LINNEPreemphasisFilter *preem, uint32_t num_preem, int32_t *buffer, uint32_t num_samples)
 {
-    uint32_t smpl;
+    int32_t smpl;
+    const int32_t c0 = preem[0].coef;
+    const int32_t c1 = preem[1].coef;
 
     LINNE_ASSERT(buffer != NULL);
     LINNE_ASSERT(preem != NULL);
 
-    buffer[0] += (preem->prev * preem->coef) >> LINNE_PREEMPHASIS_COEF_SHIFT;
-    for (smpl = 1; smpl < num_samples; smpl++) {
-        buffer[smpl] += (buffer[smpl - 1] * preem->coef) >> LINNE_PREEMPHASIS_COEF_SHIFT;
+    /* 注意）現段階では2回を前提 */
+    LINNE_STATIC_ASSERT(LINNE_NUM_PREEMPHASIS_FILTERS == 2);
+    LINNE_ASSERT(num_preem == 2);
+
+    buffer[0] += (preem[1].prev * c1) >> LINNE_PREEMPHASIS_COEF_SHIFT;
+    buffer[1] += (buffer[0] * c1) >> LINNE_PREEMPHASIS_COEF_SHIFT;
+    buffer[0] += (preem[0].prev * c0) >> LINNE_PREEMPHASIS_COEF_SHIFT;
+    
+    for (smpl = 2; smpl < num_samples; smpl++) {
+        buffer[smpl] += (buffer[smpl - 1] * c1) >> LINNE_PREEMPHASIS_COEF_SHIFT;
+        buffer[smpl - 1] += (buffer[smpl - 2] * c0) >> LINNE_PREEMPHASIS_COEF_SHIFT;
     }
-    preem->prev = buffer[num_samples - 1];
+    
+    preem[0].prev = buffer[num_samples - 1];
+    buffer[num_samples - 1] += (buffer[num_samples - 2] * c0) >> LINNE_PREEMPHASIS_COEF_SHIFT;
+    preem[1].prev = buffer[num_samples - 1];
 }

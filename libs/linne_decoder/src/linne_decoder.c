@@ -517,9 +517,8 @@ static LINNEApiResult LINNEDecoder_DecodeCompressData(
             }
         }
         /* デエンファシス */
-        for (l = LINNE_NUM_PREEMPHASIS_FILTERS - 1; l >= 0; l--) {
-            LINNEPreemphasisFilter_Deemphasis(&decoder->de_emphasis[ch][l], buffer[ch], num_decode_samples);
-        }
+        LINNEPreemphasisFilter_MultiStageDeemphasis(
+            decoder->de_emphasis[ch], LINNE_NUM_PREEMPHASIS_FILTERS, buffer[ch], num_decode_samples);
     }
 
     /* MS -> LR */
