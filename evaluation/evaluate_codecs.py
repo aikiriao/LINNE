@@ -142,6 +142,9 @@ CODEC_CONFUGURES = [
         MonkeysAudio("-c3000"),
         MonkeysAudio("-c4000"),
         MPEG4ALS(""),
+        LINNE("-m 0"),
+        LINNE("-m 4"),
+        LINNE("-m 7"),
     ]
 
 if __name__ == "__main__":

@@ -24,4 +24,4 @@ if __name__ == "__main__":
     plt.xlabel('Mean decoding speed (%)')
     plt.ylabel('Mean compression rate (%)')
     plt.grid()
-    plt.show()
+    plt.savefig('codec_comparison_decodespeed_vs_compressionrate.png')
