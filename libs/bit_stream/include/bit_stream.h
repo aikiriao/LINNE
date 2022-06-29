@@ -247,8 +247,8 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         /* 読み込みモードでは実行不可能 */\
         assert(!((stream)->flags & BITSTREAM_FLAGS_MODE_READ));\
         \
-        /* 出力可能な最大ビット数を越えている */\
-        assert((nbits) <= (sizeof(uint32_t) * 8));\
+        /* 出力可能な最大ビット数を越えてないか確認 */\
+        assert((nbits) <= 32);\
         \
         /* 0ビット出力は何もせず終了 */\
         if ((nbits) == 0) { break; }\
@@ -313,8 +313,8 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         /* 読み込みモードでない場合はアサート */\
         assert((stream)->flags & BITSTREAM_FLAGS_MODE_READ);\
         \
-        /* 入力可能な最大ビット数を越えている */\
-        assert((nbits) <= (sizeof(uint32_t) * 8));\
+        /* 入力可能な最大ビット数を越えてないか確認 */\
+        assert((nbits) <= 32);\
         \
         /* 0ビット取得は0を返す */\
         if ((nbits) == 0) {\
