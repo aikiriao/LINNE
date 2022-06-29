@@ -258,7 +258,6 @@ void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
     /* 現在のバッファ容量よりも多くのビットが要求されたら
     * メモリから読み出し */
     if (nbits > stream->bit_count) {
-        const uint32_t remain = (uint32_t)(stream->memory_tail - stream->memory_p);
         /* 残りのビットを上位ビットにセット */
         nbits -= stream->bit_count;
         tmp |= BITSTREAM_GETLOWERBITS(stream->bit_buffer, stream->bit_count) << nbits;
@@ -268,33 +267,11 @@ void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
         assert(stream->memory_p < stream->memory_tail);
 
         /* メモリから読み出し */
-        if (remain >= 4) {
-            stream->bit_buffer
-                = ((uint32_t)stream->memory_p[0] << 24) | ((uint32_t)stream->memory_p[1] << 16)
-                | ((uint32_t)stream->memory_p[2] <<  8) | ((uint32_t)stream->memory_p[3] <<  0);
-            stream->memory_p += 4;
-            stream->bit_count = 32;
-        } else {
-            switch (remain) {
-            case 3:
-                stream->bit_buffer
-                    = ((uint32_t)stream->memory_p[0] << 16) | ((uint32_t)stream->memory_p[1] << 8)
-                    | ((uint32_t)stream->memory_p[2] << 0);
-                break;
-            case 2:
-                stream->bit_buffer
-                    = ((uint32_t)stream->memory_p[0] << 8) | ((uint32_t)stream->memory_p[1] << 0);
-                break;
-            case 1:
-                stream->bit_buffer = stream->memory_p[0];
-                break;
-            case 0:
-                stream->bit_buffer = 0;
-                break;
-            }
-            stream->bit_count = 8 * remain;
-            stream->memory_p += remain;
-        }
+        stream->bit_buffer
+            = ((uint32_t)stream->memory_p[0] << 24) | ((uint32_t)stream->memory_p[1] << 16)
+            | ((uint32_t)stream->memory_p[2] <<  8) | ((uint32_t)stream->memory_p[3] <<  0);
+        stream->memory_p += 4;
+        stream->bit_count = 32;
     }
 
     /* 端数ビットの処理 残ったビット分をtmpの最上位ビットにセット */

@@ -326,7 +326,6 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         * メモリから読み出し */\
         __nbits = (nbits);\
         if ((nbits) > (stream)->bit_count) {\
-            const uint32_t __remain = (uint32_t)((stream)->memory_tail - (stream)->memory_p);\
             /* 残りのビットを上位ビットにセット */\
             __nbits -= (stream)->bit_count;\
             __tmp |= BITSTREAM_GETLOWERBITS((stream)->bit_buffer, (stream)->bit_count) << __nbits;\
@@ -336,32 +335,11 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
             assert((stream)->memory_p < (stream)->memory_tail);\
             \
             /* メモリから読み出し */\
-            if (__remain >= 4) {\
-                (stream)->bit_buffer\
-                    = ((uint32_t)(stream)->memory_p[0] << 24) | ((uint32_t)(stream)->memory_p[1] << 16)\
-                    | ((uint32_t)(stream)->memory_p[2] <<  8) | ((uint32_t)(stream)->memory_p[3] <<  0);\
-                (stream)->memory_p += 4;\
-                (stream)->bit_count = 32;\
-            } else {\
-                switch (__remain) {\
-                case 3:\
-                    (stream)->bit_buffer = ((uint32_t)(stream)->memory_p[0] << 16)\
-                        | ((uint32_t)(stream)->memory_p[1] << 8) | ((uint32_t)(stream)->memory_p[2] << 0);\
-                    break;\
-                case 2:\
-                    (stream)->bit_buffer\
-                        = ((uint32_t)(stream)->memory_p[0] << 8) | ((uint32_t)(stream)->memory_p[1] << 0);\
-                    break;\
-                case 1:\
-                    (stream)->bit_buffer = (stream)->memory_p[0];\
-                    break;\
-                case 0:\
-                    (stream)->bit_buffer = 0;\
-                    break;\
-                }\
-                (stream)->bit_count = 8 * __remain;\
-                (stream)->memory_p += __remain;\
-            }\
+            (stream)->bit_buffer\
+                = ((uint32_t)(stream)->memory_p[0] << 24) | ((uint32_t)(stream)->memory_p[1] << 16)\
+                | ((uint32_t)(stream)->memory_p[2] <<  8) | ((uint32_t)(stream)->memory_p[3] <<  0);\
+            (stream)->memory_p += 4;\
+            (stream)->bit_count = 32;\
         }\
         \
         /* 端数ビットの処理 残ったビット分をtmpの最上位ビットにセット */\
