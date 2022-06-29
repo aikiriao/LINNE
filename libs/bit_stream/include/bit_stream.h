@@ -255,7 +255,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         \
         /* valの上位ビットから順次出力 */\
         __nbits = (nbits);\
-        while (__nbits >= (stream)->bit_count) {\
+        if (__nbits >= (stream)->bit_count) {\
             __nbits -= (stream)->bit_count;\
             (stream)->bit_buffer |= BITSTREAM_GETLOWERBITS((val) >> __nbits, (stream)->bit_count);\
             \

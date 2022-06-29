@@ -187,7 +187,7 @@ void BitWriter_PutBits(struct BitStream *stream, uint32_t val, uint32_t nbits)
     if (nbits == 0) { return; }
 
     /* valの上位ビットから順次出力 */
-    while (nbits >= stream->bit_count) {
+    if (nbits >= stream->bit_count) {
         nbits -= stream->bit_count;
         stream->bit_buffer |= BITSTREAM_GETLOWERBITS(val >> nbits, stream->bit_count);
 
