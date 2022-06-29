@@ -185,7 +185,7 @@ TEST(StaticHuffmanTest, PutGetCodeTest)
         }
         BitStream_Flush(&stream);
 
-        BitStream_Tell(&stream, &output_size);
+        BitStream_Tell(&stream, (int32_t *)&output_size);
 
         /* 符号取得/一致確認 */
         BitReader_Open(&stream, buffer, output_size);

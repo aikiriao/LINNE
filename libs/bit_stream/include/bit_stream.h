@@ -35,6 +35,23 @@ struct BitStream {
 /* valの下位nbitsを取得 */
 #define BITSTREAM_GETLOWERBITS(val, nbits) ((val) & g_bitstream_lower_bits_mask[(nbits)])
 
+/* NLZ（最上位ビットから1に当たるまでのビット数）の計算 */
+#if defined(__GNUC__)
+/* ビルトイン関数を使用 */
+#define BITSTREAM_NLZ(x) (((x) > 0) ? (uint32_t)__builtin_clz(x) : 32U)
+#elif defined(_MSC_VER)
+/* ビルトイン関数を使用 */
+__inline uint32_t BITSTREAM_NLZ(uint32_t x)
+{
+    unsigned long result;
+    return (_BitScanReverse(&result, x) != 0) ? (31U - result) : 32U;
+}
+#else
+/* ソフトウェア実装を使用 */
+uint32_t BitStream_NLZSoft(uint32_t x);
+#define BITSTREAM_NLZ(x) BitStream_NLZSoft(x)
+#endif
+
 #if !defined(BITSTREAM_USE_MACROS)
 
 /* ビットリーダのオープン */
@@ -269,9 +286,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
 /* nbits 取得（最大32bit）し、その値を右詰めして出力 */
 #define BitReader_GetBits(stream, val, nbits)\
     do {\
-        uint8_t  __ch;\
-        uint32_t __nbits;\
-        uint32_t __tmp = 0;\
+        uint32_t __tmp = 0, __nbits;\
         \
         /* 引数チェック */\
         assert((void *)(stream) != NULL);\
@@ -283,36 +298,60 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         /* 入力可能な最大ビット数を越えている */\
         assert((nbits) <= (sizeof(uint32_t) * 8));\
         \
-        /* 最上位ビットからデータを埋めていく
-        * 初回ループではtmpの上位ビットにセット
-        * 2回目以降は8bit単位で入力しtmpにセット */\
+        /* 0ビット取得は0を返す */\
+        if ((nbits) == 0) {\
+            (*(val)) = 0;\
+            break;\
+        }\
+        \
+        /* 現在のバッファ容量よりも多くのビットが要求されたら
+         * メモリから読み出し */\
         __nbits = (nbits);\
-        while (__nbits > (stream)->bit_count) {\
+        if ((nbits) > (stream)->bit_count) {\
+            const uint32_t __remain = (stream)->memory_tail - (stream)->memory_p;\
+            /* 残りのビットを上位ビットにセット */\
             __nbits -= (stream)->bit_count;\
-            __tmp\
-                |= BITSTREAM_GETLOWERBITS(\
-                        (stream)->bit_buffer, (stream)->bit_count) << __nbits;\
+            __tmp |= BITSTREAM_GETLOWERBITS((stream)->bit_buffer, (stream)->bit_count) << __nbits;\
             \
             /* 終端に達していないかチェック */\
             assert((stream)->memory_p >= (stream)->memory_image);\
             assert((stream)->memory_p < (stream)->memory_tail);\
             \
             /* メモリから読み出し */\
-            __ch = (*(stream)->memory_p);\
-            (stream)->memory_p++;\
-            \
-            (stream)->bit_buffer = __ch;\
-            (stream)->bit_count = 8;\
+            if (__remain >= 4) {\
+                (stream)->bit_buffer\
+                    = ((stream)->memory_p[0] << 24) | ((stream)->memory_p[1] << 16)\
+                    | ((stream)->memory_p[2] <<  8) | ((stream)->memory_p[3] <<  0);\
+                (stream)->memory_p += 4;\
+                (stream)->bit_count = 32;\
+            } else {\
+                switch (__remain) {\
+                case 3:\
+                    (stream)->bit_buffer = ((stream)->memory_p[0] << 16)\
+                        | ((stream)->memory_p[1] << 8) | ((stream)->memory_p[2] << 0);\
+                    break;\
+                case 2:\
+                    (stream)->bit_buffer\
+                        = ((stream)->memory_p[0] << 8) | ((stream)->memory_p[1] << 0);\
+                    break;\
+                case 1:\
+                    (stream)->bit_buffer = (stream)->memory_p[0];\
+                    break;\
+                case 0:\
+                    (stream)->bit_buffer = 0;\
+                    break;\
+                }\
+                (stream)->bit_count = 8 * __remain;\
+                (stream)->memory_p += __remain;\
+            }\
         }\
         \
-        /* 端数ビットの処理
-        * 残ったビット分をtmpの最上位ビットにセット */\
+        /* 端数ビットの処理 残ったビット分をtmpの最上位ビットにセット */\
         (stream)->bit_count -= __nbits;\
-        __tmp |= (uint32_t)BITSTREAM_GETLOWERBITS(\
-                    (stream)->bit_buffer >> (stream)->bit_count, __nbits);\
+        __tmp |= BITSTREAM_GETLOWERBITS((stream)->bit_buffer >> (stream)->bit_count, __nbits);\
         \
         /* 正常終了 */\
-        (*val) = __tmp;\
+        (*(val)) = __tmp;\
     } while (0)
 
 /* つぎの1にぶつかるまで読み込み、その間に読み込んだ0のランレングスを取得 */
@@ -325,38 +364,33 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         assert((void *)(runlength) != NULL);\
         \
         /* 上位ビットからの連続する0を計測 */\
-        __run = g_bitstream_zerobit_runlength_table[\
-        BITSTREAM_GETLOWERBITS((stream)->bit_buffer, (stream)->bit_count)];\
-        __run += (stream)->bit_count - 8;\
+        __run = BITSTREAM_NLZ(BITSTREAM_GETLOWERBITS((stream)->bit_buffer, (stream)->bit_count)) + (stream)->bit_count - 32;\
         \
         /* 読み込んだ分カウントを減らす */\
+        assert((stream)->bit_count >= __run);\
         (stream)->bit_count -= __run;\
         \
         /* バッファが空の時 */\
         while ((stream)->bit_count == 0) {\
-            /* 1バイト読み込みとエラー処理 */\
-            uint8_t   __ch;\
-            uint32_t  __tmp_run;\
+            /* 1バイト読み込み再度計測 */\
+            uint32_t __tmp_run;\
             \
             /* 終端に達していないかチェック */\
             assert((stream)->memory_p >= (stream)->memory_image);\
-            assert((stream)->memory_p <(stream)->memory_tail);\
+            assert((stream)->memory_p < (stream)->memory_tail);\
             \
-            /* メモリから読み出し */\
-            __ch = (*(stream)->memory_p);\
+            /* メモリから読み出し ビットバッファにセットし直して再度ランを計測 */\
+            (stream)->bit_buffer = (stream)->memory_p[0];\
             (stream)->memory_p++;\
-            \
-            /* ビットバッファにセットし直して再度ランを計測 */\
-            (stream)->bit_buffer = __ch;\
             /* テーブルによりラン長を取得 */\
-            __tmp_run\
-            = g_bitstream_zerobit_runlength_table[(stream)->bit_buffer];\
+            __tmp_run = g_bitstream_zerobit_runlength_table[(stream)->bit_buffer];\
             (stream)->bit_count = 8 - __tmp_run;\
             /* ランを加算 */\
             __run += __tmp_run;\
         }\
         \
         /* 続く1を空読み */\
+        assert((stream)->bit_count >= 1);\
         (stream)->bit_count -= 1;\
         \
         /* 正常終了 */\
@@ -369,14 +403,13 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         /* 引数チェック */\
         assert((void *)(stream) != NULL);\
         \
-        /* 既に先頭にあるときは何もしない */\
-        if ((stream)->bit_count < 8) {\
-            /* 読み込み位置を次のバイト先頭に */\
-            if ((stream)->flags & BITSTREAM_FLAGS_MODE_READ) {\
-                /* 残りビット分を空読み */\
-                uint32_t dummy;\
-                BitReader_GetBits((stream), &dummy, (stream)->bit_count);\
-            } else {\
+        if ((stream)->flags & BITSTREAM_FLAGS_MODE_READ) {\
+            /* バッファに余ったバイト分だけ読み出し位置を戻し、バッファクリア */\
+            (stream)->memory_p -= ((stream)->bit_count >> 3);\
+            (stream)->bit_buffer = 0;\
+            (stream)->bit_count = 0;\
+        } else {\
+            if ((stream)->bit_count < 8) {\
                 /* バッファに余ったビットを強制出力 */\
                 BitWriter_PutBits((stream), 0, (stream)->bit_count);\
             }\

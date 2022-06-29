@@ -3,15 +3,15 @@
 
 /* 下位ビットを取り出すマスク 32bitまで */
 const uint32_t g_bitstream_lower_bits_mask[33] = {
-    0x00000000UL,
-    0x00000001UL, 0x00000003UL, 0x00000007UL, 0x0000000FUL,
-    0x0000001FUL, 0x0000003FUL, 0x0000007FUL, 0x000000FFUL,
-    0x000001FFUL, 0x000003FFUL, 0x000007FFUL, 0x00000FFFUL,
-    0x00001FFFUL, 0x00003FFFUL, 0x00007FFFUL, 0x0000FFFFUL,
-    0x0001FFFFUL, 0x0003FFFFUL, 0x0007FFFFUL, 0x000FFFFFUL,
-    0x001FFFFFUL, 0x000FFFFFUL, 0x007FFFFFUL, 0x00FFFFFFUL,
-    0x01FFFFFFUL, 0x03FFFFFFUL, 0x07FFFFFFUL, 0x0FFFFFFFUL,
-    0x1FFFFFFFUL, 0x3FFFFFFFUL, 0x7FFFFFFFUL, 0xFFFFFFFFUL
+    0x00000000U,
+    0x00000001U, 0x00000003U, 0x00000007U, 0x0000000FU,
+    0x0000001FU, 0x0000003FU, 0x0000007FU, 0x000000FFU,
+    0x000001FFU, 0x000003FFU, 0x000007FFU, 0x00000FFFU,
+    0x00001FFFU, 0x00003FFFU, 0x00007FFFU, 0x0000FFFFU,
+    0x0001FFFFU, 0x0003FFFFU, 0x0007FFFFU, 0x000FFFFFU,
+    0x001FFFFFU, 0x003FFFFFU, 0x007FFFFFU, 0x00FFFFFFU,
+    0x01FFFFFFU, 0x03FFFFFFU, 0x07FFFFFFU, 0x0FFFFFFFU,
+    0x1FFFFFFFU, 0x3FFFFFFFU, 0x7FFFFFFFU, 0xFFFFFFFFU
 };
 
 /* 0のラン長パターンテーブル（注意：上位ビットからのラン長） */
@@ -33,6 +33,20 @@ const uint32_t g_bitstream_zerobit_runlength_table[256] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
+
+/* NLZ計算のためのテーブル */
+#define UNUSED 99
+static const uint32_t st_nlz10_table[64] = {
+        32,     20,     19, UNUSED, UNUSED,     18, UNUSED,      7,
+        10,     17, UNUSED, UNUSED,     14, UNUSED,      6, UNUSED,
+    UNUSED,      9, UNUSED,     16, UNUSED, UNUSED,      1,     26,
+    UNUSED,     13, UNUSED, UNUSED,     24,      5, UNUSED, UNUSED,
+    UNUSED,     21, UNUSED,      8,     11, UNUSED,     15, UNUSED,
+    UNUSED, UNUSED, UNUSED,      2,     27,      0,     25, UNUSED,
+        22, UNUSED,     12, UNUSED, UNUSED,      3,     28, UNUSED,
+        23, UNUSED,      4,     29, UNUSED, UNUSED,     30,     31
+};
+#undef UNUSED
 
 #if !defined(BITSTREAM_USE_MACROS)
 
@@ -222,7 +236,6 @@ void BitWriter_PutZeroRun(struct BitStream *stream, uint32_t runlength)
 /* nbits 取得（最大32bit）し、その値を右詰めして出力 */
 void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
 {
-    uint8_t  ch;
     uint32_t tmp = 0;
 
     /* 引数チェック */
@@ -235,10 +248,17 @@ void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
     /* 入力可能な最大ビット数を越えている */
     assert(nbits <= (sizeof(uint32_t) * 8));
 
-    /* 最上位ビットからデータを埋めていく
-    * 初回ループではtmpの上位ビットにセット
-    * 2回目以降は8bit単位で入力しtmpにセット */
-    while (nbits > stream->bit_count) {
+    /* 0ビット取得は0を返す */
+    if (nbits == 0) {
+        (*val) = 0;
+        return;
+    }
+
+    /* 現在のバッファ容量よりも多くのビットが要求されたら
+     * メモリから読み出し */
+    if (nbits > stream->bit_count) {
+        const uint32_t remain = stream->memory_tail - stream->memory_p;
+        /* 残りのビットを上位ビットにセット */
         nbits -= stream->bit_count;
         tmp |= BITSTREAM_GETLOWERBITS(stream->bit_buffer, stream->bit_count) << nbits;
 
@@ -247,14 +267,35 @@ void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
         assert(stream->memory_p < stream->memory_tail);
 
         /* メモリから読み出し */
-        ch = (*stream->memory_p);
-        stream->memory_p++;
-
-        stream->bit_buffer = ch;
-        stream->bit_count = 8;
+        if (remain >= 4) {
+            stream->bit_buffer
+                = (stream->memory_p[0] << 24) | (stream->memory_p[1] << 16)
+                | (stream->memory_p[2] <<  8) | (stream->memory_p[3] <<  0);
+            stream->memory_p += 4;
+            stream->bit_count = 32;
+        } else {
+            switch (remain) {
+            case 3:
+                stream->bit_buffer
+                    = (stream->memory_p[0] << 16) | (stream->memory_p[1] << 8) | (stream->memory_p[2] << 0);
+                break;
+            case 2:
+                stream->bit_buffer
+                    = (stream->memory_p[0] << 8) | (stream->memory_p[1] << 0);
+                break;
+            case 1:
+                stream->bit_buffer = stream->memory_p[0];
+                break;
+            case 0:
+                stream->bit_buffer = 0;
+                break;
+            }
+            stream->bit_count = 8 * remain;
+            stream->memory_p += remain;
+        }
     }
 
-    /* 端数ビットの処理残ったビット分をtmpの最上位ビットにセット */
+    /* 端数ビットの処理 残ったビット分をtmpの最上位ビットにセット */
     stream->bit_count -= nbits;
     tmp |= BITSTREAM_GETLOWERBITS(stream->bit_buffer >> stream->bit_count, nbits);
 
@@ -272,28 +313,24 @@ void BitReader_GetZeroRunLength(struct BitStream *stream, uint32_t *runlength)
     assert(runlength != NULL);
 
     /* 上位ビットからの連続する0を計測 */
-    run = g_bitstream_zerobit_runlength_table[BITSTREAM_GETLOWERBITS(stream->bit_buffer, stream->bit_count)];
-    run += stream->bit_count - 8;
+    run = BITSTREAM_NLZ(BITSTREAM_GETLOWERBITS(stream->bit_buffer, stream->bit_count)) + stream->bit_count - 32;
 
     /* 読み込んだ分カウントを減らす */
+    assert(stream->bit_count >= run);
     stream->bit_count -= run;
 
     /* バッファが空の時 */
     while (stream->bit_count == 0) {
-        /* 1バイト読み込みとエラー処理 */
-        uint8_t ch;
+        /* 1バイト読み込み再度計測 */
         uint32_t tmp_run;
 
         /* 終端に達していないかチェック */
         assert(stream->memory_p >= stream->memory_image);
         assert(stream->memory_p < stream->memory_tail);
 
-        /* メモリから読み出し */
-        ch = (*stream->memory_p);
+        /* メモリから読み出し ビットバッファにセットし直して再度ランを計測 */
+        stream->bit_buffer = stream->memory_p[0];
         stream->memory_p++;
-
-        /* ビットバッファにセットし直して再度ランを計測 */
-        stream->bit_buffer = ch;
         /* テーブルによりラン長を取得 */
         tmp_run = g_bitstream_zerobit_runlength_table[stream->bit_buffer];
         stream->bit_count = 8 - tmp_run;
@@ -302,26 +339,26 @@ void BitReader_GetZeroRunLength(struct BitStream *stream, uint32_t *runlength)
     }
 
     /* 続く1を空読み */
+    assert(stream->bit_count >= 1);
     stream->bit_count -= 1;
 
     /* 正常終了 */
-    (*(runlength)) = run;
+    (*runlength) = run;
 }
 
-/* バッファにたまったビットをクリア */
+/* バッファにたまったビットをクリア（読み込み/書き込み位置を次のバイト境界に移動） */
 void BitStream_Flush(struct BitStream *stream)
 {
     /* 引数チェック */
     assert(stream != NULL);
 
-    /* 既に先頭にあるときは何もしない */
-    if (stream->bit_count < 8) {
-        /* 読み込み位置を次のバイト先頭に */
-        if (stream->flags & BITSTREAM_FLAGS_MODE_READ) {
-            /* 残りビット分を空読み */
-            uint32_t dummy;
-            BitReader_GetBits(stream, &dummy, stream->bit_count);
-        } else {
+    if (stream->flags & BITSTREAM_FLAGS_MODE_READ) {
+        /* バッファに余ったバイト分だけ読み出し位置を戻し、バッファクリア */
+        stream->memory_p -= (stream->bit_count >> 3);
+        stream->bit_buffer = 0;
+        stream->bit_count = 0;
+    } else {
+        if (stream->bit_count < 8) {
             /* バッファに余ったビットを強制出力 */
             BitWriter_PutBits(stream, 0, stream->bit_count);
         }
@@ -329,3 +366,18 @@ void BitStream_Flush(struct BitStream *stream)
 }
 
 #endif /* BITSTREAM_USE_MACROS */
+
+/* NLZ（最上位ビットから1に当たるまでのビット数）の計算 */
+uint32_t BitStream_NLZSoft(uint32_t x)
+{
+    /* ハッカーのたのしみ参照 */
+    x = x | (x >> 1);
+    x = x | (x >> 2);
+    x = x | (x >> 4);
+    x = x | (x >> 8);
+    x = x & ~(x >> 16);
+    x = (x << 9) - x;
+    x = (x << 11) - x;
+    x = (x << 14) - x;
+    return st_nlz10_table[x >> 26];
+}

@@ -11,7 +11,7 @@ extern "C" {
 /* インスタンス作成破棄テスト */
 TEST(BitStreamTest, CreateDestroyTest)
 {
-    /* インスタンス作成・破棄（メモリ） */
+    /* インスタンス作成・破棄 */
     {
         struct BitStream strm;
         uint8_t test_memory[] = {'A', 'I', 'K', 'A', 'T', 'S', 'U'};
@@ -105,7 +105,7 @@ TEST(BitStreamTest, PutGetTest)
     /* Flushテスト */
     {
         struct BitStream strm;
-        uint8_t memory_image[256];
+        uint8_t memory_image[256] = { 0, };
         uint32_t bits;
 
         BitWriter_Open(&strm, memory_image, sizeof(memory_image));
@@ -121,9 +121,13 @@ TEST(BitStreamTest, PutGetTest)
         BitReader_Open(&strm, memory_image, sizeof(memory_image));
         BitReader_GetBits(&strm, &bits, 8);
         EXPECT_EQ(0xC0, bits);
+        EXPECT_EQ(24, strm.bit_count);
+        EXPECT_EQ(0xC0000000, strm.bit_buffer);
+        EXPECT_EQ(&memory_image[4], strm.memory_p);
         BitStream_Flush(&strm);
         EXPECT_EQ(0, strm.bit_count);
-        EXPECT_EQ(0xC0, strm.bit_buffer);
+        EXPECT_EQ(0, strm.bit_buffer);
+        EXPECT_EQ(&memory_image[1], strm.memory_p);
         BitStream_Close(&strm);
     }
 
@@ -134,9 +138,9 @@ TEST(BitStreamTest, StreamOperationTest)
 {
     /* Seek/Tellテスト */
     {
-        struct BitStream   strm;
-        int32_t               tell_result;
-        uint8_t               test_memory[8];
+        struct BitStream strm;
+        int32_t tell_result;
+        uint8_t test_memory[8];
 
         /* テスト用に適当にデータ作成 */
         BitWriter_Open(&strm, test_memory, sizeof(test_memory));
@@ -185,13 +189,15 @@ TEST(BitStreamTest, GetZeroRunLengthTest)
 {
     {
         struct BitStream strm;
-        uint8_t data[5];
+        uint8_t data[256] = { 0, };
         uint32_t test_length, run;
 
-        for (test_length = 0; test_length <= 32; test_length++) {
+        for (test_length = 0; test_length <= 65; test_length++) {
             /* ラン長だけ0を書き込み、1で止める */
             BitWriter_Open(&strm, data, sizeof(data));
-            BitWriter_PutBits(&strm, 0, test_length);
+            for (run = 0; run < test_length; run++) {
+                BitWriter_PutBits(&strm, 0, 1);
+            }
             BitWriter_PutBits(&strm, 1, 1);
             BitStream_Close(&strm);
 
@@ -201,7 +207,7 @@ TEST(BitStreamTest, GetZeroRunLengthTest)
         }
 
         /* ラン長出力APIを使用 */
-        for (test_length = 0; test_length <= 32; test_length++) {
+        for (test_length = 0; test_length <= 65; test_length++) {
             BitWriter_Open(&strm, data, sizeof(data));
             BitWriter_PutZeroRun(&strm, test_length);
             BitStream_Close(&strm);
@@ -210,6 +216,19 @@ TEST(BitStreamTest, GetZeroRunLengthTest)
             BitReader_GetZeroRunLength(&strm, &run);
             EXPECT_EQ(test_length, run);
         }
+
+        /* 連続したラン */
+        BitWriter_Open(&strm, data, sizeof(data));
+        for (test_length = 0; test_length <= 32; test_length++) {
+            BitWriter_PutZeroRun(&strm, test_length);
+        }
+        BitStream_Close(&strm);
+        BitReader_Open(&strm, data, sizeof(data));
+        for (test_length = 0; test_length <= 32; test_length++) {
+            BitReader_GetZeroRunLength(&strm, &run);
+            EXPECT_EQ(test_length, run);
+        }
+        BitStream_Close(&strm);
     }
 }
 
