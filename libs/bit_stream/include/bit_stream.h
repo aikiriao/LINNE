@@ -305,7 +305,7 @@ extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
         }\
         \
         /* 現在のバッファ容量よりも多くのビットが要求されたら
-         * メモリから読み出し */\
+        * メモリから読み出し */\
         __nbits = (nbits);\
         if ((nbits) > (stream)->bit_count) {\
             const uint32_t __remain = (stream)->memory_tail - (stream)->memory_p;\

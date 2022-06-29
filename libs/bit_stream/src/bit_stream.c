@@ -255,7 +255,7 @@ void BitReader_GetBits(struct BitStream *stream, uint32_t *val, uint32_t nbits)
     }
 
     /* 現在のバッファ容量よりも多くのビットが要求されたら
-     * メモリから読み出し */
+    * メモリから読み出し */
     if (nbits > stream->bit_count) {
         const uint32_t remain = stream->memory_tail - stream->memory_p;
         /* 残りのビットを上位ビットにセット */
