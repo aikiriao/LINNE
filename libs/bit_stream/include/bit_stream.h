@@ -23,13 +23,13 @@
 
 /* ビットストリーム構造体 */
 struct BitStream {
-    uint32_t        bit_buffer;
-    uint32_t        bit_count;
-    const uint8_t  *memory_image;
-    const uint8_t  *memory_tail;
-    size_t          memory_size;
-    uint8_t        *memory_p;
-    uint8_t         flags;
+    uint32_t bit_buffer; /* ビットの一時バッファ */
+    uint32_t bit_count; /* [Reader]バッファ残りビット数, [Writer]メモリ書き出しまでのビット数 */
+    const uint8_t *memory_image; /* メモリ領域先頭 */
+    const uint8_t *memory_tail;/* メモリ領域末尾 */
+    size_t memory_size; /* メモリ領域サイズ */
+    uint8_t *memory_p; /* メモリ読み書き位置 */
+    uint8_t flags; /* 内部状態フラグ */
 };
 
 /* valの下位nbitsを取得 */
@@ -53,13 +53,9 @@ __inline uint32_t BITSTREAM_NLZ(uint32_t x)
 
 /* NLZのソフトウェア実装 */
 #ifdef __cplusplus
-extern "C" {
-#endif
-
+extern "C" uint32_t BitStream_NLZSoft(uint32_t x);
+#else
 uint32_t BitStream_NLZSoft(uint32_t x);
-
-#ifdef __cplusplus
-}
 #endif
 
 #if !defined(BITSTREAM_USE_MACROS)
