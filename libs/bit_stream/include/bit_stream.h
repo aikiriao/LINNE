@@ -52,9 +52,21 @@ __inline uint32_t BITSTREAM_NLZ(uint32_t x)
 #endif
 
 /* NLZのソフトウェア実装 */
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 uint32_t BitStream_NLZSoft(uint32_t x);
 
+#ifdef __cplusplus
+}
+#endif
+
 #if !defined(BITSTREAM_USE_MACROS)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* ビットリーダのオープン */
 void BitReader_Open(struct BitStream *stream, const uint8_t *memory, size_t size);
@@ -86,13 +98,25 @@ void BitReader_GetZeroRunLength(struct BitStream *stream, uint32_t *runlength);
 /* バッファにたまったビットをクリア */
 void BitStream_Flush(struct BitStream *stream);
 
-#else
+#ifdef __cplusplus
+}
+#endif
+
+#else /* BITSTREAM_USE_MACROS */
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* 下位ビットを取り出すためのマスク */
 extern const uint32_t g_bitstream_lower_bits_mask[33];
 
 /* ラン長のパターンテーブル */
 extern const uint32_t g_bitstream_zerobit_runlength_table[0x100];
+
+#ifdef __cplusplus
+}
+#endif
 
 /* ビットリーダのオープン */
 #define BitReader_Open(stream, memory, size)\

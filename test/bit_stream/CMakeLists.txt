@@ -6,7 +6,7 @@ set(PROJECT_ROOT_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 set(TEST_NAME bit_stream_test)
 
 # 実行形式ファイル
-add_executable(${TEST_NAME} main.cpp)
+add_executable(${TEST_NAME} main.cpp bit_stream_macro_test.cpp bit_stream_function_test.cpp)
 
 # インクルードディレクトリ
 include_directories(${PROJECT_ROOT_PATH}/libs/bit_stream/include)
