@@ -23,7 +23,7 @@ TEST(BitStreamTest, CreateDestroyTest)
         EXPECT_EQ(test_memory_size, strm.memory_size);
         EXPECT_TRUE(strm.memory_p == test_memory);
         EXPECT_EQ(0, strm.bit_buffer);
-        EXPECT_EQ(8, strm.bit_count);
+        EXPECT_EQ(32, strm.bit_count);
         EXPECT_TRUE(!(strm.flags & BITSTREAM_FLAGS_MODE_READ));
         BitStream_Close(&strm);
 
@@ -114,7 +114,7 @@ TEST(BitStreamTest, PutGetTest)
         /* 2bitしか書いていないがフラッシュ */
         BitStream_Flush(&strm);
         EXPECT_EQ(0, strm.bit_buffer);
-        EXPECT_EQ(8, strm.bit_count);
+        EXPECT_EQ(32, strm.bit_count);
         BitStream_Close(&strm);
 
         /* 1バイトで先頭2bitだけが立っているはず */

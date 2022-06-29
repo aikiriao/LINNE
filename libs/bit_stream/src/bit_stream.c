@@ -87,7 +87,7 @@ void BitWriter_Open(struct BitStream *stream, const uint8_t *memory, size_t size
     stream->flags = 0;
 
     /* バッファ初期化 */
-    stream->bit_count = 8;
+    stream->bit_count = 32;
     stream->bit_buffer = 0;
 
     /* メモリセット */
@@ -186,28 +186,29 @@ void BitWriter_PutBits(struct BitStream *stream, uint32_t val, uint32_t nbits)
     /* 0ビット出力は何もせず終了 */
     if (nbits == 0) { return; }
 
-    /* valの上位ビットから順次出力
-    * 初回ループでは端数（出力に必要なビット数）分を埋め出力
-    * 2回目以降は8bit単位で出力 */
+    /* valの上位ビットから順次出力 */
     while (nbits >= stream->bit_count) {
         nbits -= stream->bit_count;
         stream->bit_buffer |= BITSTREAM_GETLOWERBITS(val >> nbits, stream->bit_count);
 
         /* 終端に達していないかチェック */
         assert(stream->memory_p >= stream->memory_image);
-        assert(stream->memory_p < stream->memory_tail);
+        assert((stream->memory_p + 3) < stream->memory_tail);
 
         /* メモリに書き出し */
-        (*stream->memory_p) = (stream->bit_buffer & 0xFF);
-        stream->memory_p++;
+        stream->memory_p[0] = ((stream->bit_buffer >> 24) & 0xFF);
+        stream->memory_p[1] = ((stream->bit_buffer >> 16) & 0xFF);
+        stream->memory_p[2] = ((stream->bit_buffer >>  8) & 0xFF);
+        stream->memory_p[3] = ((stream->bit_buffer >>  0) & 0xFF);
+        stream->memory_p += 4;
 
         /* バッファをリセット */
         stream->bit_buffer = 0;
-        stream->bit_count = 8;
+        stream->bit_count = 32;
     }
 
     /* 端数ビットの処理: 残った分をバッファの上位ビットにセット */
-    assert(nbits <= 8);
+    assert(nbits <= 32);
     stream->bit_count -= nbits;
     stream->bit_buffer |= BITSTREAM_GETLOWERBITS(val, nbits) << stream->bit_count;
 }
@@ -358,9 +359,30 @@ void BitStream_Flush(struct BitStream *stream)
         stream->bit_buffer = 0;
         stream->bit_count = 0;
     } else {
-        if (stream->bit_count < 8) {
-            /* バッファに余ったビットを強制出力 */
-            BitWriter_PutBits(stream, 0, stream->bit_count);
+        if (stream->bit_count < 32) {
+            /* 次のバイト境界まで出力 */
+            const uint32_t remainbits = 32 - stream->bit_count;
+            if (remainbits > 24) {
+                stream->memory_p[0] = ((stream->bit_buffer >> 24) & 0xFF);
+                stream->memory_p[1] = ((stream->bit_buffer >> 16) & 0xFF);
+                stream->memory_p[2] = ((stream->bit_buffer >>  8) & 0xFF);
+                stream->memory_p[3] = ((stream->bit_buffer >>  0) & 0xFF);
+                stream->memory_p += 4;
+            } else if (remainbits > 16) {
+                stream->memory_p[0] = ((stream->bit_buffer >> 24) & 0xFF);
+                stream->memory_p[1] = ((stream->bit_buffer >> 16) & 0xFF);
+                stream->memory_p[2] = ((stream->bit_buffer >>  8) & 0xFF);
+                stream->memory_p += 3;
+            } else if (remainbits > 8) {
+                stream->memory_p[0] = ((stream->bit_buffer >> 24) & 0xFF);
+                stream->memory_p[1] = ((stream->bit_buffer >> 16) & 0xFF);
+                stream->memory_p += 2;
+            } else {
+                stream->memory_p[0] = ((stream->bit_buffer >> 24) & 0xFF);
+                stream->memory_p += 1;
+            }
+            stream->bit_count = 32;
+            stream->bit_buffer = 0;
         }
     }
 }
