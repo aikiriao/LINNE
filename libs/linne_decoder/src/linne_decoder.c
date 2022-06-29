@@ -186,7 +186,7 @@ static LINNEError LINNEDecoder_CheckHeaderFormat(const struct LINNEHeader *heade
 /* デコーダハンドルの作成に必要なワークサイズの計算 */
 int32_t LINNEDecoder_CalculateWorkSize(const struct LINNEDecoderConfig *config)
 {
-    int32_t work_size, tmp_work_size;
+    int32_t work_size;
 
     /* 引数チェック */
     if (config == NULL) {

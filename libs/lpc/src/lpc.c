@@ -921,7 +921,7 @@ static LPCError LPC_ConvertLPCtoPARCORDouble(
     memcpy(tmplpc_coef, lpc_coef, sizeof(double) * coef_order);
 
     /* PARCOR係数に変換 */
-    for (i = coef_order - 1; i >= 0; i--) {
+    for (i = (int32_t)(coef_order - 1); i >= 0; i--) {
         const double gamma = tmplpc_coef[i];
         assert(fabs(gamma) < 1.0);
         parcor_coef[i] = -gamma;
@@ -995,7 +995,7 @@ LPCApiResult LPC_QuantizeCoefficients(
 
     /* 係数絶対値の計算 */
     max = 0.0;
-    for (ord = 0; ord < coef_order; ord++) {
+    for (ord = 0; ord < (int32_t)coef_order; ord++) {
         if (max < fabs(double_coef[ord])) {
             max = fabs(double_coef[ord]);
         }

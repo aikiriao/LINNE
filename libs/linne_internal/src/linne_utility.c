@@ -215,16 +215,16 @@ void LINNEPreemphasisFilter_Preemphasis(
 void LINNEPreemphasisFilter_MultiStageDeemphasis(
     struct LINNEPreemphasisFilter *preem, uint32_t num_preem, int32_t *buffer, uint32_t num_samples)
 {
-    int32_t smpl;
+    uint32_t smpl;
     const int32_t c0 = preem[0].coef;
     const int32_t c1 = preem[1].coef;
-
-    LINNE_ASSERT(buffer != NULL);
-    LINNE_ASSERT(preem != NULL);
 
     /* 注意）現段階では2回を前提 */
     LINNE_STATIC_ASSERT(LINNE_NUM_PREEMPHASIS_FILTERS == 2);
     LINNE_ASSERT(num_preem == 2);
+
+    LINNE_ASSERT(buffer != NULL);
+    LINNE_ASSERT(preem != NULL);
 
     buffer[0] += (preem[1].prev * c1) >> LINNE_PREEMPHASIS_COEF_SHIFT;
     buffer[1] += (buffer[0] * c1) >> LINNE_PREEMPHASIS_COEF_SHIFT;
