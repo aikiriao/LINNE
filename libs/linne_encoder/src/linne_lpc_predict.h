@@ -10,7 +10,7 @@ extern "C" {
 /* LPC係数により予測/誤差出力 */
 void LINNELPC_Predict(
     const int32_t *data, uint32_t num_samples,
-    const int32_t *coef, uint32_t coef_order, int32_t *residual, uint32_t coef_rshift, int32_t is_first_unit);
+    const int32_t *coef, uint32_t coef_order, int32_t *residual, uint32_t coef_rshift, uint32_t num_units);
 
 #ifdef __cplusplus
 }

@@ -504,17 +504,9 @@ static LINNEApiResult LINNEDecoder_DecodeCompressData(
     for (ch = 0; ch < header->num_channels; ch++) {
         /* LPC合成 */
         for (l = (int32_t)decoder->parameter_preset->num_layers - 1; l >= 0; l--) {
-            uint32_t u;
-            const uint32_t nunits = decoder->num_units[ch][l];
-            const uint32_t nparams_per_unit = decoder->parameter_preset->layer_num_params_list[l] / nunits;
-            const uint32_t nsmpls_per_unit = num_decode_samples / nunits;
-            const uint32_t rshift = decoder->rshifts[ch][l];
-            for (u = 0; u < nunits; u++) {
-                int32_t *poutput = &buffer[ch][u * nsmpls_per_unit];
-                const int32_t *pcoef = &decoder->params_int[ch][l][u * nparams_per_unit];
-                /* 合成 */
-                LINNELPC_Synthesize(poutput, nsmpls_per_unit, pcoef, nparams_per_unit, rshift, u == 0);
-            }
+            LINNELPC_Synthesize(buffer[ch],
+                num_decode_samples, decoder->params_int[ch][l], decoder->parameter_preset->layer_num_params_list[l],
+                decoder->rshifts[ch][l], decoder->num_units[ch][l]);
         }
         /* デエンファシス */
         LINNEPreemphasisFilter_MultiStageDeemphasis(
