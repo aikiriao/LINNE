@@ -371,7 +371,7 @@ int main(int argc, char** argv)
         if (CommandLineParser_GetOptionAcquired(command_line_spec, "auxiliary-function-iteration") == COMMAND_LINE_PARSER_TRUE) {
             char *e;
             const char *lstr = CommandLineParser_GetArgumentString(command_line_spec, "auxiliary-function-iteration");
-            num_afmethod_iterations = (uint32_t)strtol(lstr, &e, 10);
+            num_afmethod_iterations = (uint8_t)strtol(lstr, &e, 10);
             if (*e != '\0') {
                 fprintf(stderr, "%s: invalid auxiliary function iteration count. (irregular character found in %s at %s)\n", argv[0], lstr, e);
                 return 1;
