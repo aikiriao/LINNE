@@ -21,6 +21,9 @@
 /* 読みモードか？（0で書きモード） */
 #define BITSTREAM_FLAGS_MODE_READ  (1 << 0)
 
+/* valの下位nbitsを取得 */
+#define BITSTREAM_GETLOWERBITS(val, nbits) ((val) & g_bitstream_lower_bits_mask[(nbits)])
+
 /* ビットストリーム構造体 */
 struct BitStream {
     uint32_t bit_buffer; /* ビットの一時バッファ */
@@ -31,9 +34,6 @@ struct BitStream {
     uint8_t *memory_p; /* メモリ読み書き位置 */
     uint8_t flags; /* 内部状態フラグ */
 };
-
-/* valの下位nbitsを取得 */
-#define BITSTREAM_GETLOWERBITS(val, nbits) ((val) & g_bitstream_lower_bits_mask[(nbits)])
 
 /* NLZ（最上位ビットから1に当たるまでのビット数）の計算 */
 #if defined(__GNUC__)
