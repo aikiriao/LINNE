@@ -33,6 +33,7 @@ void LINNELPC_Synthesize(
             data[smpl + ord] -= (predict >> coef_rshift);
         }
     } else if (num_units == 2) {
+        /* 2ユニット並列で合成 */
         int32_t predict[2];
         int32_t *poutput[2];
         const int32_t *pcoef[2];
@@ -52,6 +53,7 @@ void LINNELPC_Synthesize(
             }
         }
     } else {
+        /* 4ユニット並列で合成 */
         int32_t predict[4];
         int32_t *poutput[4];
         const int32_t *pcoef[4];
