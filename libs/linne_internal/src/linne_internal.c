@@ -13,7 +13,7 @@
     }
 
 /* レイヤーパラメータ配列 */
-static const uint32_t layer_structure_preset1[] = {       8,  32 };
+static const uint32_t layer_structure_preset1[] = {       2,  32 };
 static const uint32_t layer_structure_preset2[] = {  4,  64,   8 };
 static const uint32_t layer_structure_preset3[] = {  4, 128,  16 };
 
