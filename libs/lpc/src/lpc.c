@@ -1014,7 +1014,7 @@ LPCApiResult LPC_QuantizeCoefficients(
     /* 符号ビットを落とす */
     nbits_precision--;
     /* nbits_precisionで表現可能にするためのシフト量計算 */
-    assert((int32_t)nbits_precision > ndigit);
+    assert((int32_t)nbits_precision >= ndigit);
     rshift = (uint32_t)((int32_t)nbits_precision - ndigit);
 
     /* 量子化 */

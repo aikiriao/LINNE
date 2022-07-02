@@ -722,10 +722,9 @@ static LINNEApiResult LINNEEncoder_EncodeCompressData(
             uval = LINNEUTILITY_LOG2CEIL(encoder->num_units[ch][l]);
             LINNE_ASSERT(uval < (1 << LINNE_LOG2_NUM_UNITS_BITWIDTH));
             BitWriter_PutBits(&writer, uval, LINNE_LOG2_NUM_UNITS_BITWIDTH);
-            /* 各レイヤーでのLPC係数右シフト量: 基準のLPC_COEF_BITWIDTHと差分をとる */
-            uval = LINNEUTILITY_SINT32_TO_UINT32(LINNE_LPC_COEFFICIENT_BITWIDTH - (int32_t)encoder->rshifts[ch][l]);
-            LINNE_ASSERT(uval < (1 << LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
-            BitWriter_PutBits(&writer, uval, LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
+            /* 各レイヤーでのLPC係数右シフト量 */
+            LINNE_ASSERT(encoder->rshifts[ch][l] < (1 << LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH));
+            BitWriter_PutBits(&writer, encoder->rshifts[ch][l], LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
             /* LPC係数 */
             for (i = 0; i < encoder->parameter_preset->layer_num_params_list[l]; i++) {
                 uval = LINNEUTILITY_SINT32_TO_UINT32(encoder->params_int[ch][l][i]);

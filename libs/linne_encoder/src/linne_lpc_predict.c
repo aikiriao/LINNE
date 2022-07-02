@@ -19,7 +19,6 @@ void LINNELPC_Predict(
     LINNE_ASSERT(data != NULL);
     LINNE_ASSERT(coef != NULL);
     LINNE_ASSERT(residual != NULL);
-    LINNE_ASSERT(coef_rshift != 0);
 
     memcpy(residual, data, sizeof(int32_t) * num_samples);
 

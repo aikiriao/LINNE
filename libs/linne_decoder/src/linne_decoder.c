@@ -475,9 +475,8 @@ static LINNEApiResult LINNEDecoder_DecodeCompressData(
             /* log2(ユニット数) */
             BitReader_GetBits(&reader, &uval, LINNE_LOG2_NUM_UNITS_BITWIDTH);
             decoder->num_units[ch][l] = (1 << uval);
-            /* 各レイヤーでのLPC係数右シフト量: 基準のLINNE_LPC_COEFFICIENT_BITWIDTHと差分をとる */
-            BitReader_GetBits(&reader, &uval, LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
-            decoder->rshifts[ch][l] = (uint32_t)(LINNE_LPC_COEFFICIENT_BITWIDTH - LINNEUTILITY_UINT32_TO_SINT32(uval));
+            /* 各レイヤーでのLPC係数右シフト量 */
+            BitReader_GetBits(&reader, &decoder->rshifts[ch][l], LINNE_RSHIFT_LPC_COEFFICIENT_BITWIDTH);
             /* LPC係数 */
             for (i = 0; i < decoder->parameter_preset->layer_num_params_list[l]; i++) {
                 uval = StaticHuffman_GetCode(&decoder->coef_tree, &reader);

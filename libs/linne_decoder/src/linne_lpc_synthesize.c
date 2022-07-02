@@ -17,7 +17,6 @@ void LINNELPC_Synthesize(
     /* 引数チェック */
     LINNE_ASSERT(data != NULL);
     LINNE_ASSERT(coef != NULL);
-    LINNE_ASSERT(coef_rshift != 0);
 
     /* ユニット数は2の冪であることを要求 */
     LINNE_ASSERT(num_units > 0);
