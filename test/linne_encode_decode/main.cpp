@@ -29,6 +29,8 @@ struct EncodeDecodeTestCase {
 static void LINNEEncodeDecodeTest_GenerateSilence(double **data, uint32_t num_channels, uint32_t num_samples);
 /* サイン波の生成 */
 static void LINNEEncodeDecodeTest_GenerateSinWave(double **data, uint32_t num_channels, uint32_t num_samples);
+/* サイン波（チャンネルごとに逆相）の部 */
+static void LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave(double **data, uint32_t num_channels, uint32_t num_samples);
 /* 白色雑音の生成 */
 static void LINNEEncodeDecodeTest_GenerateWhiteNoise(double **data, uint32_t num_channels, uint32_t num_samples);
 /* チャープ信号の生成 */
@@ -68,6 +70,21 @@ static void LINNEEncodeDecodeTest_GenerateSinWave(
     for (ch = 0; ch < num_channels; ch++) {
         for (smpl = 0; smpl < num_samples; smpl++) {
             data[ch][smpl] = sin(440.0f * 2 * M_PI * smpl / 44100.0f);
+        }
+    }
+}
+
+/* サイン波（チャンネルごとに逆相）の部 */
+static void LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave(
+        double **data, uint32_t num_channels, uint32_t num_samples)
+{
+    uint32_t smpl, ch;
+
+    assert(data != NULL);
+
+    for (ch = 0; ch < num_channels; ch++) {
+        for (smpl = 0; smpl < num_samples; smpl++) {
+            data[ch][smpl] = pow(-1, ch) * sin(440.0f * 2 * M_PI * smpl / 44100.0f);
         }
     }
 }
@@ -361,6 +378,26 @@ TEST(LINNEEncodeDecodeTest, EncodeDecodeCheckTest)
         { { 8,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
         { { 8, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
         { { 8, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinWave },
+
+        /* サイン波（チャンネルごとに逆相）の部 */
+        { { 1,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 1, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 1, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 2,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 2, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 2, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 8,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 8, 16, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 8, 24, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 1,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 1, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 1, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_NONE, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 2,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 2, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 2, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 8,  8, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 8, 16, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
+        { { 8, 24, 8000, 1024, LINNE_NUM_PARAMETER_PRESETS - 1, LINNE_CH_PROCESS_METHOD_MS, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave },
 
         /* 白色雑音の部 */
         { { 1,  8, 8000, 1024, 0, LINNE_CH_PROCESS_METHOD_NONE, 0 }, 0, 8192, LINNEEncodeDecodeTest_GenerateWhiteNoise },
