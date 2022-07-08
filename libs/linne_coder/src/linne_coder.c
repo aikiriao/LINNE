@@ -199,11 +199,25 @@ static void LINNECoder_CalculateOptimalRecursiveRiceParameter(
 #undef OPTX
 }
 
+/* 再帰的Rice符号長の出力 */
+static uint32_t RecursiveRice_GetCodeLength(uint32_t k1, uint32_t k2, uint32_t uval)
+{
+    const uint32_t k1pow = 1U << k1;
+
+    if (uval < k1pow) {
+        /* 1段目で符号化 */
+        return k1 + 1;
+    } else {
+        /* 1段目のパラメータで引き、2段目のパラメータでRice符号化 */
+        return k2 + 2 + ((uval - k1pow) >> k2);
+    }
+}
+
 /* 符号付き整数配列の符号化 */
-static void LINNECoder_EncodePartitionedRecursiveRice(struct LINNECoder* coder, struct BitStream *stream, const int32_t *data, uint32_t num_samples)
+static void LINNECoder_EncodePartitionedRecursiveRice(struct LINNECoder *coder, struct BitStream *stream, const int32_t *data, uint32_t num_samples)
 {
     uint32_t max_porder, max_num_partitions;
-    uint32_t porder, part, best_porder;
+    uint32_t porder, part, best_porder, smpl;
 
     /* 最大分割数の決定 */
     max_porder = 1;
@@ -215,7 +229,6 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct LINNECoder* coder, 
 
     /* 各分割での平均を計算 */
     {
-        uint32_t smpl;
         int32_t i;
 
         /* 最も細かい分割時の平均値 */
@@ -238,16 +251,17 @@ static void LINNECoder_EncodePartitionedRecursiveRice(struct LINNECoder* coder, 
 
     /* 各分割での符号長を計算し、最適な分割を探索 */
     {
-        double min_bits = FLT_MAX;
+        uint32_t min_bits = UINT32_MAX;
         best_porder = 0;
         for (porder = 0; porder <= max_porder; porder++) {
             const uint32_t nsmpl = (num_samples >> porder);
             uint32_t k1, k2, prevk2;
-            double bps;
-            double bits = 0.0;
+            uint32_t bits = 0;
             for (part = 0; part < (1 << porder); part++) {
-                LINNECoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[porder][part], &k1, &k2, &bps);
-                bits += bps * nsmpl;
+                LINNECoder_CalculateOptimalRecursiveRiceParameter(coder->part_mean[porder][part], &k1, &k2, NULL);
+                for (smpl = 0; smpl < nsmpl; smpl++) {
+                    bits += RecursiveRice_GetCodeLength(k1, k2, LINNEUTILITY_SINT32_TO_UINT32(data[part * nsmpl + smpl]));
+                }
                 if (part == 0) {
                     bits += LINNECODER_RICE_PARAMETER_BITS;
                 } else {
