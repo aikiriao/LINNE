@@ -30,7 +30,7 @@ static void LINNEEncodeDecodeTest_GenerateSilence(double **data, uint32_t num_ch
 /* サイン波の生成 */
 static void LINNEEncodeDecodeTest_GenerateSinWave(double **data, uint32_t num_channels, uint32_t num_samples);
 /* サイン波（チャンネルごとに逆相）の部 */
-static void LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave(double **data, uint32_t num_channels, uint32_t num_samples); 
+static void LINNEEncodeDecodeTest_GenerateSinChSignFlippedWave(double **data, uint32_t num_channels, uint32_t num_samples);
 /* 白色雑音の生成 */
 static void LINNEEncodeDecodeTest_GenerateWhiteNoise(double **data, uint32_t num_channels, uint32_t num_samples);
 /* チャープ信号の生成 */
