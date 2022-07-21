@@ -132,12 +132,14 @@ TEST_FILE_DIRECTORY_DICT = {
     }
 
 CODEC_CONFUGURES = [
+        Flac("-0"),
         Flac("-5"),
         Flac("-8"),
         WavPack(""),
         WavPack("-h"),
         WavPack("-hh"),
         TTA(""),
+        MonkeysAudio("-c1000"),
         MonkeysAudio("-c2000"),
         MonkeysAudio("-c3000"),
         MonkeysAudio("-c4000"),
