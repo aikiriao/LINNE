@@ -14,18 +14,16 @@ if __name__ == "__main__":
         line = [[], []]
         for label in df.keys():
             if label.startswith(cprefix):
-                plt.scatter(df.at['Total mean decode time', label],
-                    df.at['Total mean compression rate', label], label=label, color=COLORLIST[inx])
                 texts.append(plt.text(df.at['Total mean decode time', label],
-                    df.at['Total mean compression rate', label], label, size=9))
+                    df.at['Total mean compression rate', label], label[len(cprefix):], size=10))
                 line[0].append(df.at['Total mean decode time', label])
                 line[1].append(df.at['Total mean compression rate', label])
-        if len(line[0]) > 1:
-            plt.plot(line[0], line[1], color=COLORLIST[inx])
-    adjust_text(texts, arrowprops=dict(arrowstyle='->', color='black'))
+        plt.plot(line[0], line[1], color=COLORLIST[inx], label=cprefix, marker='o')
+    adjust_text(texts)
     plt.title('Decoding speed v.s. compression rate comparison')
     plt.xlabel('Total average decoding speed (%)')
     plt.ylabel('Total average compression rate (%)')
+    plt.legend()
     plt.grid()
     plt.savefig('codec_comparison_decodespeed_vs_compressionrate.png')
     plt.savefig('codec_comparison_decodespeed_vs_compressionrate.pdf')
