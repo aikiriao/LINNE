@@ -23,8 +23,9 @@ if __name__ == "__main__":
         if len(line[0]) > 1:
             plt.plot(line[0], line[1], color=COLORLIST[inx])
     adjust_text(texts, arrowprops=dict(arrowstyle='->', color='black'))
-    plt.xlabel('Mean decoding speed (%)')
-    plt.ylabel('Mean compression rate (%)')
+    plt.title('Decoding speed v.s. compression rate comparison')
+    plt.xlabel('Total average decoding speed (%)')
+    plt.ylabel('Total average compression rate (%)')
     plt.grid()
     plt.savefig('codec_comparison_decodespeed_vs_compressionrate.png')
     plt.savefig('codec_comparison_decodespeed_vs_compressionrate.pdf')
