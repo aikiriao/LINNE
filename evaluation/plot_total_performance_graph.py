@@ -7,7 +7,7 @@ CODEC_LABEL_PREFIXES = ['Flac', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS'
 COLORLIST = ['r', 'g', 'b', 'c', 'm', 'y', 'k', 'w']
 
 if __name__ == "__main__":
-    df = pd.read_csv('codec_comaprison_summery.csv', index_col=0)
+    df = pd.read_csv('codec_comparison_summery.csv', index_col=0)
     # デコード速度 v.s. 圧縮率グラフ
     texts = []
     for inx, cprefix in enumerate(CODEC_LABEL_PREFIXES):
