@@ -202,7 +202,7 @@ if __name__ == "__main__":
             total_result[codec][e] = np.mean(total_result[codec][e])
 
     # 結果出力
-    with open('codec_comaprison_summery.csv', 'w', encoding='UTF-8') as f:
+    with open('codec_comparison_summery.csv', 'w', encoding='UTF-8') as f:
         writer = csv.writer(f, lineterminator='\n')
         header = ['']
         for codec in CODEC_CONFUGURES:
