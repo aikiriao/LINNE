@@ -1,7 +1,12 @@
 " コーデック評価グラフの作成 "
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 from adjustText import adjust_text
+
+# type3 font 回避(tex使用)
+matplotlib.rcParams['text.usetex'] = True
+matplotlib.rcParams['text.latex.preamble'] = '\\usepackage{sfmath}'
 
 CODEC_LABEL_PREFIXES = ['Flac', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS', 'LINNE']
 COLORLIST = ['r', 'g', 'b', 'c', 'm', 'y', 'k', 'w']
@@ -21,9 +26,8 @@ if __name__ == "__main__":
         plt.plot(line[0], line[1], color=COLORLIST[inx], label=cprefix, marker='o')
     adjust_text(texts)
     plt.title('Decoding speed v.s. compression rate comparison')
-    plt.xlabel('Total average decoding speed (%)')
-    plt.ylabel('Total average compression rate (%)')
+    plt.xlabel('Total average decoding speed (\%)')
+    plt.ylabel('Total average compression rate (\%)')
     plt.legend()
     plt.grid()
-    plt.savefig('codec_comparison_decodespeed_vs_compressionrate.png')
     plt.savefig('codec_comparison_decodespeed_vs_compressionrate.pdf')
