@@ -7,6 +7,8 @@ from adjustText import adjust_text
 # type3 font 回避(tex使用)
 matplotlib.rcParams['text.usetex'] = True
 matplotlib.rcParams['text.latex.preamble'] = '\\usepackage{sfmath}'
+# フォントサイズ一括設定
+matplotlib.rcParams["font.size"] = 12
 
 CODEC_LABEL_PREFIXES = ['Flac', 'WavPack', 'TTA', 'Monkey\'s Audio', 'MPEG4-ALS', 'LINNE']
 COLORLIST = ['r', 'g', 'b', 'c', 'm', 'y', 'k', 'w']
