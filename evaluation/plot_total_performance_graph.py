@@ -17,6 +17,7 @@ if __name__ == "__main__":
     df = pd.read_csv('codec_comparison_summery.csv', index_col=0)
     # デコード速度 v.s. 圧縮率グラフ
     texts = []
+    plt.cla()
     for inx, cprefix in enumerate(CODEC_LABEL_PREFIXES):
         line = [[], []]
         for label in df.keys():
@@ -33,3 +34,23 @@ if __name__ == "__main__":
     plt.legend()
     plt.grid()
     plt.savefig('codec_comparison_decodespeed_vs_compressionrate.pdf')
+
+    # エンコード速度 v.s. 圧縮率グラフ
+    texts = []
+    plt.cla()
+    for inx, cprefix in enumerate(CODEC_LABEL_PREFIXES):
+        line = [[], []]
+        for label in df.keys():
+            if label.startswith(cprefix):
+                texts.append(plt.text(df.at['Total mean encode time', label],
+                    df.at['Total mean compression rate', label], label[len(cprefix):], size=10))
+                line[0].append(df.at['Total mean encode time', label])
+                line[1].append(df.at['Total mean compression rate', label])
+        plt.plot(line[0], line[1], color=COLORLIST[inx], label=cprefix, marker='o')
+    adjust_text(texts)
+    plt.title('Decoding speed v.s. compression rate comparison')
+    plt.xlabel('Total average encoding speed (\%)')
+    plt.ylabel('Total average compression rate (\%)')
+    plt.legend()
+    plt.grid()
+    plt.savefig('codec_comparison_encodespeed_vs_compressionrate.pdf')
