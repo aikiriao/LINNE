@@ -48,7 +48,7 @@ if __name__ == "__main__":
                 line[1].append(df.at['Total mean compression rate', label])
         plt.plot(line[0], line[1], color=COLORLIST[inx], label=cprefix, marker='o')
     adjust_text(texts)
-    plt.title('Decoding speed v.s. compression rate comparison')
+    plt.title('Encoding speed v.s. compression rate comparison')
     plt.xlabel('Total average encoding speed (\%)')
     plt.ylabel('Total average compression rate (\%)')
     plt.legend()
