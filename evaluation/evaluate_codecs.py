@@ -104,6 +104,15 @@ class MPEG4ALS(Codec):
             command = f"wine64 mp4alsRM23.exe -x {in_filename} {out_filename}"
         return command
 
+class NARU(Codec):
+    """ NARU """
+    def get_label(self):
+        return f"NARU {self.compress_option}"
+    def generate_encode_command(self, in_filename, out_filename):
+        return f"naru {self.compress_option} -e {in_filename} {out_filename}"
+    def generate_decode_command(self, in_filename, out_filename):
+        return f"naru {self.compress_option} -d {in_filename} {out_filename}"
+
 class LINNE(Codec):
     """ LINNE """
     def get_label(self):
@@ -147,6 +156,9 @@ CODEC_CONFUGURES = [
         LINNE("-m 0"),
         LINNE("-m 4"),
         LINNE("-m 7"),
+        NARU("-m 0"),
+        NARU("-m 2"),
+        NARU("-m 4"),
     ]
 
 if __name__ == "__main__":
