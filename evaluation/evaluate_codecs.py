@@ -47,10 +47,10 @@ class Codec:
         command = self.generate_decode_command(in_filename, out_filename)
         return _measure_execution_time(command)
 
-class Flac(Codec):
+class FLAC(Codec):
     """ FLAC """
     def get_label(self):
-        return f"Flac {self.compress_option}"
+        return f"FLAC {self.compress_option}"
     def generate_encode_command(self, in_filename, out_filename):
         return f'flac {self.compress_option} -f -s -o {out_filename} {in_filename}'
     def generate_decode_command(self, in_filename, out_filename):
@@ -141,9 +141,9 @@ TEST_FILE_DIRECTORY_DICT = {
     }
 
 CODEC_CONFUGURES = [
-        Flac("-0"),
-        Flac("-5"),
-        Flac("-8"),
+        FLAC("-0"),
+        FLAC("-5"),
+        FLAC("-8"),
         WavPack(""),
         WavPack("-h"),
         WavPack("-hh"),
@@ -225,7 +225,7 @@ if __name__ == "__main__":
             for codec in CODEC_CONFUGURES:
                 row.append(np.mean(results[codec.get_label()][categ]['encode_time']))
             writer.writerow(row)
-        row = ['Total mean encode time']
+        row = ['total mean encode time']
         for codec in CODEC_CONFUGURES:
             row.append(total_result[codec]['encode_time'])
         writer.writerow(row)
@@ -234,7 +234,7 @@ if __name__ == "__main__":
             for codec in CODEC_CONFUGURES:
                 row.append(np.mean(results[codec.get_label()][categ]['decode_time']))
             writer.writerow(row)
-        row = ['Total mean decode time']
+        row = ['total mean decode time']
         for codec in CODEC_CONFUGURES:
             row.append(total_result[codec]['decode_time'])
         writer.writerow(row)
@@ -243,7 +243,7 @@ if __name__ == "__main__":
             for codec in CODEC_CONFUGURES:
                 row.append(np.mean(results[codec.get_label()][categ]['compress_rate']))
             writer.writerow(row)
-        row = ['Total mean compression rate']
+        row = ['total mean compression rate']
         for codec in CODEC_CONFUGURES:
             row.append(total_result[codec]['compress_rate'])
         writer.writerow(row)
